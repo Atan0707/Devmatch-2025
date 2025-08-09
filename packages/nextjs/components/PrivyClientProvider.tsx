@@ -4,7 +4,7 @@ import { createContext, useContext } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
 // import { WagmiProvider } from "wagmi";
 // import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { arbitrum, baseSepolia, mainnet, optimism, polygon, sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 // Context to track if Privy is available
 const PrivyAvailabilityContext = createContext<{ isPrivyAvailable: boolean }>({ isPrivyAvailable: false });
@@ -46,9 +46,9 @@ export function PrivyClientProvider({ children }: { children: React.ReactNode })
         // Login methods
         loginMethods: ["email", "sms", "wallet"],
         // Supported chains
-        supportedChains: [mainnet, sepolia, polygon, optimism, arbitrum, baseSepolia],
+        supportedChains: [baseSepolia],
         // Default chain
-        defaultChain: sepolia,
+        defaultChain: baseSepolia,
       }}
     >
       <PrivyAvailabilityContext.Provider value={{ isPrivyAvailable: true }}>

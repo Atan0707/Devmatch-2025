@@ -1,16 +1,73 @@
 import ABI from "./abi.json";
 import { ethers } from "ethers";
 
-// PisangContract comprehensive functions module
+// PisangContract comprehensive functions module using Privy
 export class PisangContractFunctions {
-  private signer: ethers.Signer;
-  private contract: ethers.Contract;
   private provider: ethers.BrowserProvider;
+  private contractAddress: string;
+  private contractABI: any[];
+  private signerAddress: string;
+  private signTransactionFn: (input: any, options?: any) => Promise<{ signature: string }>;
 
-  constructor(signer: ethers.Signer, provider: ethers.BrowserProvider) {
-    this.signer = signer;
+  constructor(
+    provider: ethers.BrowserProvider,
+    signerAddress: string,
+    signTransactionFn: (input: any, options?: any) => Promise<{ signature: string }>,
+  ) {
     this.provider = provider;
-    this.contract = new ethers.Contract(ABI.address, ABI.abi, signer);
+    this.contractAddress = ABI.address;
+    this.contractABI = ABI.abi;
+    this.signerAddress = signerAddress;
+    this.signTransactionFn = signTransactionFn;
+  }
+
+  // ===================== HELPER FUNCTIONS =====================
+
+  /**
+   * Helper function to execute a transaction with Privy signing
+   * @param functionName The contract function name
+   * @param args The function arguments
+   * @param value Optional ETH value to send
+   */
+  private async executeTransaction(functionName: string, args: any[] = [], value?: bigint) {
+    // Create contract interface to encode the function call
+    const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+    const data = contract.interface.encodeFunctionData(functionName, args);
+
+    // Estimate gas
+    const gasEstimateOptions: any = {
+      to: this.contractAddress,
+      from: this.signerAddress,
+      data: data,
+    };
+
+    if (value) {
+      gasEstimateOptions.value = value;
+    }
+
+    const gasEstimate = await this.provider.estimateGas(gasEstimateOptions);
+
+    // Get current gas price
+    const feeData = await this.provider.getFeeData();
+
+    // Prepare transaction
+    const tx: any = {
+      to: this.contractAddress,
+      data: data,
+      gas: gasEstimate.toString(),
+      gasPrice: feeData.gasPrice?.toString() || "20000000000", // 20 gwei fallback
+    };
+
+    if (value) {
+      tx.value = value.toString();
+    }
+
+    // Sign transaction using Privy
+    const { signature } = await this.signTransactionFn(tx, {
+      address: this.signerAddress,
+    });
+
+    return { signature, txHash: signature };
   }
 
   // ===================== CONTENT MANAGEMENT FUNCTIONS =====================
@@ -23,10 +80,9 @@ export class PisangContractFunctions {
   async registerContent(username: string, platform: string) {
     try {
       console.log("Registering content:", username, "on", platform);
-      const tx = await this.contract.registerContent(username, platform);
-      const receipt = await tx.wait();
-      console.log("✅ Content registered successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("registerContent", [username, platform]);
+      console.log("✅ Content registered successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Content registration failed:", error);
       throw this.handleError(error, "Content registration failed");
@@ -41,10 +97,9 @@ export class PisangContractFunctions {
   async deactivateContent(username: string, platform: string) {
     try {
       console.log("Deactivating content:", username, "on", platform);
-      const tx = await this.contract.deactivateContent(username, platform);
-      const receipt = await tx.wait();
-      console.log("✅ Content deactivated successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("deactivateContent", [username, platform]);
+      console.log("✅ Content deactivated successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Content deactivation failed:", error);
       throw this.handleError(error, "Content deactivation failed");
@@ -59,10 +114,9 @@ export class PisangContractFunctions {
   async reactivateContent(username: string, platform: string) {
     try {
       console.log("Reactivating content:", username, "on", platform);
-      const tx = await this.contract.reactivateContent(username, platform);
-      const receipt = await tx.wait();
-      console.log("✅ Content reactivated successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("reactivateContent", [username, platform]);
+      console.log("✅ Content reactivated successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Content reactivation failed:", error);
       throw this.handleError(error, "Content reactivation failed");
@@ -78,10 +132,9 @@ export class PisangContractFunctions {
   async transferContentOwnership(username: string, platform: string, newOwner: string) {
     try {
       console.log("Transferring content ownership:", username, "on", platform, "to:", newOwner);
-      const tx = await this.contract.transferContentOwnership(username, platform, newOwner);
-      const receipt = await tx.wait();
-      console.log("✅ Content ownership transferred successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("transferContentOwnership", [username, platform, newOwner]);
+      console.log("✅ Content ownership transferred successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Content ownership transfer failed:", error);
       throw this.handleError(error, "Content ownership transfer failed");
@@ -97,10 +150,9 @@ export class PisangContractFunctions {
   async changeUsername(oldUsername: string, newUsername: string, platform: string) {
     try {
       console.log("Changing username from:", oldUsername, "to:", newUsername, "on", platform);
-      const tx = await this.contract.changeUsername(oldUsername, newUsername, platform);
-      const receipt = await tx.wait();
-      console.log("✅ Username changed successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("changeUsername", [oldUsername, newUsername, platform]);
+      console.log("✅ Username changed successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Username change failed:", error);
       throw this.handleError(error, "Username change failed");
@@ -119,13 +171,9 @@ export class PisangContractFunctions {
     try {
       console.log("Donating ETH to content:", username, "on", platform, "Amount:", amount);
       const amountInWei = ethers.parseEther(amount);
-
-      const tx = await this.contract.donateToContent(username, platform, {
-        value: amountInWei,
-      });
-      const receipt = await tx.wait();
-      console.log("✅ ETH donation successful, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("donateToContent", [username, platform], amountInWei);
+      console.log("✅ ETH donation successful, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("ETH donation failed:", error);
       throw this.handleError(error, "ETH donation failed");
@@ -151,22 +199,20 @@ export class PisangContractFunctions {
       console.log("Donating tokens to content:", username, "on", platform, "Token:", tokenAddress, "Amount:", amount);
 
       const amountInWei = ethers.parseUnits(amount, decimals);
-      const userAddress = await this.signer.getAddress();
 
-      // Create token contract instance
+      // Create token contract instance for read operations
       const tokenContract = new ethers.Contract(
         tokenAddress,
         [
-          "function approve(address spender, uint256 amount) returns (bool)",
           "function allowance(address owner, address spender) view returns (uint256)",
           "function balanceOf(address account) view returns (uint256)",
           "function decimals() view returns (uint8)",
         ],
-        this.signer,
+        this.provider,
       );
 
       // Check user balance
-      const balance = await tokenContract.balanceOf(userAddress);
+      const balance = await tokenContract.balanceOf(this.signerAddress);
       console.log(`Token Balance: ${ethers.formatUnits(balance, decimals)} tokens`);
 
       if (balance < amountInWei) {
@@ -176,7 +222,7 @@ export class PisangContractFunctions {
       }
 
       // Check current allowance
-      const currentAllowance = await tokenContract.allowance(userAddress, ABI.address);
+      const currentAllowance = await tokenContract.allowance(this.signerAddress, this.contractAddress);
       console.log(`Current allowance: ${ethers.formatUnits(currentAllowance, decimals)} tokens`);
 
       // If allowance is insufficient, approve
@@ -186,18 +232,19 @@ export class PisangContractFunctions {
         // First reset allowance to 0 if needed (some tokens require this)
         if (currentAllowance > 0) {
           console.log("Resetting allowance to 0 first...");
-          const resetTx = await tokenContract.approve(ABI.address, 0);
-          await resetTx.wait();
+          await this.executeTokenTransaction(tokenAddress, "approve", [this.contractAddress, 0]);
           console.log("Allowance reset to 0");
         }
 
         // Now set the new allowance
-        const approveTx = await tokenContract.approve(ABI.address, amountInWei);
-        const approveReceipt = await approveTx.wait();
-        console.log("✅ Token approved, tx hash:", approveReceipt.hash);
+        const approveResult = await this.executeTokenTransaction(tokenAddress, "approve", [
+          this.contractAddress,
+          amountInWei,
+        ]);
+        console.log("✅ Token approved, signature:", approveResult.signature);
 
         // Verify the allowance was set correctly
-        const newAllowance = await tokenContract.allowance(userAddress, ABI.address);
+        const newAllowance = await tokenContract.allowance(this.signerAddress, this.contractAddress);
         console.log(`New allowance: ${ethers.formatUnits(newAllowance, decimals)} tokens`);
 
         if (newAllowance < amountInWei) {
@@ -209,14 +256,60 @@ export class PisangContractFunctions {
 
       // Make the donation
       console.log("Making token donation...");
-      const donateTx = await this.contract.donateTokenToContent(username, platform, tokenAddress, amountInWei);
-      const donateReceipt = await donateTx.wait();
-      console.log("✅ Token donation successful, tx hash:", donateReceipt.hash);
-      return { success: true, txHash: donateReceipt.hash, receipt: donateReceipt };
+      const result = await this.executeTransaction("donateTokenToContent", [
+        username,
+        platform,
+        tokenAddress,
+        amountInWei,
+      ]);
+      console.log("✅ Token donation successful, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Token donation failed:", error);
       throw this.handleError(error, "Token donation failed");
     }
+  }
+
+  /**
+   * Helper function to execute token contract transactions
+   * @param tokenAddress The token contract address
+   * @param functionName The function name
+   * @param args The function arguments
+   */
+  private async executeTokenTransaction(tokenAddress: string, functionName: string, args: any[] = []) {
+    const tokenABI = [
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function transfer(address to, uint256 amount) returns (bool)",
+    ];
+
+    // Create contract interface to encode the function call
+    const tokenContract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
+    const data = tokenContract.interface.encodeFunctionData(functionName, args);
+
+    // Estimate gas
+    const gasEstimate = await this.provider.estimateGas({
+      to: tokenAddress,
+      from: this.signerAddress,
+      data: data,
+    });
+
+    // Get current gas price
+    const feeData = await this.provider.getFeeData();
+
+    // Prepare transaction
+    const tx = {
+      to: tokenAddress,
+      data: data,
+      gas: gasEstimate.toString(),
+      gasPrice: feeData.gasPrice?.toString() || "20000000000",
+    };
+
+    // Sign transaction using Privy
+    const { signature } = await this.signTransactionFn(tx, {
+      address: this.signerAddress,
+    });
+
+    return { signature, txHash: signature };
   }
 
   // ===================== WITHDRAWAL FUNCTIONS =====================
@@ -227,10 +320,9 @@ export class PisangContractFunctions {
   async withdrawEthEarnings() {
     try {
       console.log("Withdrawing ETH earnings...");
-      const tx = await this.contract.withdrawEthEarnings();
-      const receipt = await tx.wait();
-      console.log("✅ ETH withdrawal successful, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("withdrawEthEarnings");
+      console.log("✅ ETH withdrawal successful, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("ETH withdrawal failed:", error);
       throw this.handleError(error, "ETH withdrawal failed");
@@ -244,10 +336,9 @@ export class PisangContractFunctions {
   async withdrawTokenEarnings(tokenAddress: string) {
     try {
       console.log("Withdrawing token earnings for:", tokenAddress);
-      const tx = await this.contract.withdrawTokenEarnings(tokenAddress);
-      const receipt = await tx.wait();
-      console.log("✅ Token withdrawal successful, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("withdrawTokenEarnings", [tokenAddress]);
+      console.log("✅ Token withdrawal successful, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Token withdrawal failed:", error);
       throw this.handleError(error, "Token withdrawal failed");
@@ -260,10 +351,9 @@ export class PisangContractFunctions {
   async withdrawAllEarnings() {
     try {
       console.log("Withdrawing all earnings...");
-      const tx = await this.contract.withdrawAllEarnings();
-      const receipt = await tx.wait();
-      console.log("✅ All earnings withdrawal successful, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("withdrawAllEarnings");
+      console.log("✅ All earnings withdrawal successful, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("All earnings withdrawal failed:", error);
       throw this.handleError(error, "All earnings withdrawal failed");
@@ -279,7 +369,8 @@ export class PisangContractFunctions {
    */
   async getContent(username: string, platform: string) {
     try {
-      const content = await this.contract.getContent(username, platform);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const content = await contract.getContent(username, platform);
       return {
         username: content[0],
         platform: content[1],
@@ -302,7 +393,8 @@ export class PisangContractFunctions {
    */
   async contentExists(username: string, platform: string): Promise<boolean> {
     try {
-      return await this.contract.contentExistsCheck(username, platform);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      return await contract.contentExistsCheck(username, platform);
     } catch (error: any) {
       console.error("Failed to check content existence:", error);
       return false;
@@ -315,7 +407,8 @@ export class PisangContractFunctions {
    */
   async getCreatorContents(creatorAddress: string): Promise<string[]> {
     try {
-      return await this.contract.getCreatorContents(creatorAddress);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      return await contract.getCreatorContents(creatorAddress);
     } catch (error: any) {
       console.error("Failed to get creator contents:", error);
       throw this.handleError(error, "Failed to get creator contents");
@@ -329,7 +422,8 @@ export class PisangContractFunctions {
    */
   async getContentDonations(username: string, platform: string): Promise<number[]> {
     try {
-      const donations = await this.contract.getContentDonations(username, platform);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const donations = await contract.getContentDonations(username, platform);
       return donations.map((id: any) => Number(id));
     } catch (error: any) {
       console.error("Failed to get content donations:", error);
@@ -345,7 +439,8 @@ export class PisangContractFunctions {
    */
   async getRecentDonations(username: string, platform: string, limit: number = 10): Promise<number[]> {
     try {
-      const donations = await this.contract.getRecentDonations(username, platform, limit);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const donations = await contract.getRecentDonations(username, platform, limit);
       return donations.map((id: any) => Number(id));
     } catch (error: any) {
       console.error("Failed to get recent donations:", error);
@@ -359,7 +454,8 @@ export class PisangContractFunctions {
    */
   async getDonation(donationId: number) {
     try {
-      const donation = await this.contract.getDonation(donationId);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const donation = await contract.getDonation(donationId);
       return {
         donor: donation[0],
         contentOwner: donation[1],
@@ -382,7 +478,8 @@ export class PisangContractFunctions {
    */
   async getCreatorEarnings(creatorAddress: string, tokenAddress: string): Promise<bigint> {
     try {
-      return await this.contract.getCreatorEarnings(creatorAddress, tokenAddress);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      return await contract.getCreatorEarnings(creatorAddress, tokenAddress);
     } catch (error: any) {
       console.error("Failed to get creator earnings:", error);
       throw this.handleError(error, "Failed to get creator earnings");
@@ -395,7 +492,8 @@ export class PisangContractFunctions {
    */
   async getCreatorAllEarnings(creatorAddress: string) {
     try {
-      const result = await this.contract.getCreatorAllEarnings(creatorAddress);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const result = await contract.getCreatorAllEarnings(creatorAddress);
       return {
         tokens: result[0],
         amounts: result[1],
@@ -414,7 +512,8 @@ export class PisangContractFunctions {
    */
   async getDonorTotalDonations(donorAddress: string, tokenAddress: string): Promise<bigint> {
     try {
-      return await this.contract.getDonorTotalDonations(donorAddress, tokenAddress);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      return await contract.getDonorTotalDonations(donorAddress, tokenAddress);
     } catch (error: any) {
       console.error("Failed to get donor total donations:", error);
       throw this.handleError(error, "Failed to get donor total donations");
@@ -427,7 +526,8 @@ export class PisangContractFunctions {
    */
   async getDonorAllDonations(donorAddress: string) {
     try {
-      const result = await this.contract.getDonorAllDonations(donorAddress);
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const result = await contract.getDonorAllDonations(donorAddress);
       return {
         tokens: result[0],
         amounts: result[1],
@@ -444,7 +544,8 @@ export class PisangContractFunctions {
    */
   async getSupportedTokens() {
     try {
-      const result = await this.contract.getSupportedTokens();
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const result = await contract.getSupportedTokens();
       return {
         tokens: result[0],
         symbols: result[1],
@@ -460,7 +561,8 @@ export class PisangContractFunctions {
    */
   async getSupportedPlatforms(): Promise<string[]> {
     try {
-      return await this.contract.getSupportedPlatforms();
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      return await contract.getSupportedPlatforms();
     } catch (error: any) {
       console.error("Failed to get supported platforms:", error);
       throw this.handleError(error, "Failed to get supported platforms");
@@ -472,7 +574,8 @@ export class PisangContractFunctions {
    */
   async getPlatformStats() {
     try {
-      const result = await this.contract.getPlatformStats();
+      const contract = new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
+      const result = await contract.getPlatformStats();
       return {
         totalContents: result[0],
         totalDonations: result[1],
@@ -494,10 +597,9 @@ export class PisangContractFunctions {
   async addSupportedToken(tokenAddress: string, symbol: string) {
     try {
       console.log("Adding supported token:", tokenAddress, symbol);
-      const tx = await this.contract.addSupportedToken(tokenAddress, symbol);
-      const receipt = await tx.wait();
-      console.log("✅ Token added successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("addSupportedToken", [tokenAddress, symbol]);
+      console.log("✅ Token added successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Add token failed:", error);
       throw this.handleError(error, "Add token failed");
@@ -511,10 +613,9 @@ export class PisangContractFunctions {
   async removeSupportedToken(tokenAddress: string) {
     try {
       console.log("Removing supported token:", tokenAddress);
-      const tx = await this.contract.removeSupportedToken(tokenAddress);
-      const receipt = await tx.wait();
-      console.log("✅ Token removed successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("removeSupportedToken", [tokenAddress]);
+      console.log("✅ Token removed successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Remove token failed:", error);
       throw this.handleError(error, "Remove token failed");
@@ -528,10 +629,9 @@ export class PisangContractFunctions {
   async addSupportedPlatform(platform: string) {
     try {
       console.log("Adding supported platform:", platform);
-      const tx = await this.contract.addSupportedPlatform(platform);
-      const receipt = await tx.wait();
-      console.log("✅ Platform added successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("addSupportedPlatform", [platform]);
+      console.log("✅ Platform added successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Add platform failed:", error);
       throw this.handleError(error, "Add platform failed");
@@ -545,10 +645,9 @@ export class PisangContractFunctions {
   async removeSupportedPlatform(platform: string) {
     try {
       console.log("Removing supported platform:", platform);
-      const tx = await this.contract.removeSupportedPlatform(platform);
-      const receipt = await tx.wait();
-      console.log("✅ Platform removed successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("removeSupportedPlatform", [platform]);
+      console.log("✅ Platform removed successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Remove platform failed:", error);
       throw this.handleError(error, "Remove platform failed");
@@ -562,10 +661,9 @@ export class PisangContractFunctions {
   async updatePlatformFee(newFee: number) {
     try {
       console.log("Updating platform fee to:", newFee);
-      const tx = await this.contract.updatePlatformFee(newFee);
-      const receipt = await tx.wait();
-      console.log("✅ Platform fee updated successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("updatePlatformFee", [newFee]);
+      console.log("✅ Platform fee updated successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Update platform fee failed:", error);
       throw this.handleError(error, "Update platform fee failed");
@@ -578,10 +676,9 @@ export class PisangContractFunctions {
   async withdrawPlatformFeesEth() {
     try {
       console.log("Withdrawing platform ETH fees...");
-      const tx = await this.contract.withdrawPlatformFeesEth();
-      const receipt = await tx.wait();
-      console.log("✅ Platform ETH fees withdrawn successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("withdrawPlatformFeesEth");
+      console.log("✅ Platform ETH fees withdrawn successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Withdraw platform ETH fees failed:", error);
       throw this.handleError(error, "Withdraw platform ETH fees failed");
@@ -595,10 +692,9 @@ export class PisangContractFunctions {
   async withdrawPlatformFeesToken(tokenAddress: string) {
     try {
       console.log("Withdrawing platform token fees for:", tokenAddress);
-      const tx = await this.contract.withdrawPlatformFeesToken(tokenAddress);
-      const receipt = await tx.wait();
-      console.log("✅ Platform token fees withdrawn successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("withdrawPlatformFeesToken", [tokenAddress]);
+      console.log("✅ Platform token fees withdrawn successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Withdraw platform token fees failed:", error);
       throw this.handleError(error, "Withdraw platform token fees failed");
@@ -611,10 +707,9 @@ export class PisangContractFunctions {
   async withdrawAllPlatformFees() {
     try {
       console.log("Withdrawing all platform fees...");
-      const tx = await this.contract.withdrawAllPlatformFees();
-      const receipt = await tx.wait();
-      console.log("✅ All platform fees withdrawn successfully, tx hash:", receipt.hash);
-      return { success: true, txHash: receipt.hash, receipt };
+      const result = await this.executeTransaction("withdrawAllPlatformFees");
+      console.log("✅ All platform fees withdrawn successfully, signature:", result.signature);
+      return { success: true, txHash: result.txHash, signature: result.signature };
     } catch (error: any) {
       console.error("Withdraw all platform fees failed:", error);
       throw this.handleError(error, "Withdraw all platform fees failed");
@@ -634,7 +729,7 @@ export class PisangContractFunctions {
    * Get contract instance
    */
   getContract(): ethers.Contract {
-    return this.contract;
+    return new ethers.Contract(this.contractAddress, this.contractABI, this.provider);
   }
 
   /**
@@ -668,8 +763,6 @@ export class PisangContractFunctions {
    */
   async checkTokenStatus(tokenAddress: string, decimals: number = 18) {
     try {
-      const userAddress = await this.signer.getAddress();
-
       const tokenContract = new ethers.Contract(
         tokenAddress,
         [
@@ -678,11 +771,11 @@ export class PisangContractFunctions {
           "function symbol() view returns (string)",
           "function name() view returns (string)",
         ],
-        this.signer,
+        this.provider,
       );
 
-      const balance = await tokenContract.balanceOf(userAddress);
-      const allowance = await tokenContract.allowance(userAddress, ABI.address);
+      const balance = await tokenContract.balanceOf(this.signerAddress);
+      const allowance = await tokenContract.allowance(this.signerAddress, this.contractAddress);
       const symbol = await tokenContract.symbol();
       const name = await tokenContract.name();
 
@@ -747,14 +840,19 @@ export class PisangContractFunctions {
 // ===================== HELPER FUNCTIONS =====================
 
 /**
- * Initialize PisangContract with wallet connection
- * @param provider Browser provider (MetaMask, etc.)
+ * Initialize PisangContract with Privy wallet connection
+ * @param provider Browser provider
+ * @param signerAddress The signer's address
+ * @param signTransactionFn Privy's sign transaction function
  * @returns PisangContractFunctions instance
  */
-export async function initializePisangContract(provider: ethers.BrowserProvider): Promise<PisangContractFunctions> {
+export async function initializePisangContract(
+  provider: ethers.BrowserProvider,
+  signerAddress: string,
+  signTransactionFn: (input: any, options?: any) => Promise<{ signature: string }>,
+): Promise<PisangContractFunctions> {
   try {
-    const signer = await provider.getSigner();
-    return new PisangContractFunctions(signer, provider);
+    return new PisangContractFunctions(provider, signerAddress, signTransactionFn);
   } catch (error: any) {
     console.error("Failed to initialize PisangContract:", error);
     throw new Error(`Failed to initialize contract: ${error.message}`);
@@ -762,21 +860,20 @@ export async function initializePisangContract(provider: ethers.BrowserProvider)
 }
 
 /**
- * Connect wallet and initialize contract
+ * @deprecated Use Privy wallet connection instead
+ * Connect wallet and initialize contract (Legacy function - use Privy instead)
  * @returns Object with connection status and contract instance
  */
 export async function connectWalletAndInitializeContract() {
+  console.warn("This function is deprecated. Please use Privy wallet connection instead.");
   try {
-    if (typeof window.ethereum === "undefined") {
+    if (typeof window === "undefined" || !window.ethereum) {
       throw new Error("Please install MetaMask!");
     }
 
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const provider = new ethers.BrowserProvider(window.ethereum as any);
     const accounts = await provider.send("eth_requestAccounts", []);
-    const signer = await provider.getSigner();
     const account = accounts[0];
-
-    const pisangContract = new PisangContractFunctions(signer, provider);
 
     console.log("Connected account:", account);
 
@@ -784,9 +881,7 @@ export async function connectWalletAndInitializeContract() {
       success: true,
       account,
       provider,
-      signer,
-      pisangContract,
-      message: "Wallet connected successfully!",
+      message: "Wallet connected successfully! Note: This is a legacy connection method.",
     };
   } catch (error: any) {
     console.error("Failed to connect wallet:", error);
