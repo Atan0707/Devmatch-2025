@@ -143,192 +143,217 @@ const Donator: NextPage = () => {
   return (
     <>
       <Navbar />
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <div className="max-w-6xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">📊 My Donations Dashboard</h1>
-            <p className="text-base-content/70">View all donations received to your wallet address</p>
-          </div>
-
-          {/* Wallet Connection Status */}
-          <div className="mb-6">
-            {(() => {
-              // Show loading state while Privy is initializing
-              if (isPrivyAvailable && !ready) {
-                return (
-                  <div className="alert alert-info">
-                    <span>Initializing wallet connection...</span>
-                    <span className="loading loading-spinner loading-sm"></span>
-                  </div>
-                );
-              }
-
-              if (!isPrivyAvailable || !authenticated) {
-                return (
-                  <div className="alert alert-warning">
-                    <span>Please connect your wallet to view your donations</span>
-                  </div>
-                );
-              }
-
-              if (!isContractConnected) {
-                return (
-                  <div className="alert alert-info">
-                    <span>Connecting to contract...</span>
-                    {loading && <span className="loading loading-spinner loading-sm"></span>}
-                    {!loading && (
-                      <button className="btn btn-sm" onClick={connectWallet}>
-                        Retry Connection
-                      </button>
-                    )}
-                  </div>
-                );
-              }
-
-              return (
-                <div className="alert alert-success">
-                  <span>
-                    ✅ Connected: <Address address={account} />
-                  </span>
-                  <button className="btn btn-sm btn-primary" onClick={refreshData} disabled={loading}>
-                    {loading ? <span className="loading loading-spinner loading-xs"></span> : "🔄"} Refresh
-                  </button>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="alert alert-error mb-4">
-              <span>{error}</span>
-              <button className="btn btn-sm btn-ghost" onClick={clearMessages}>
-                ×
-              </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+        <div className="container mx-auto px-4 py-8 pt-24">
+          <div className="max-w-6xl mx-auto">
+            {/* Page Header */}
+            <div className="mb-12">
+              <h1 className="text-4xl font-bold mb-3 text-white">📊 My Donations Dashboard</h1>
+              <p className="text-gray-400 text-lg">View all donations received to your wallet address</p>
             </div>
-          )}
-          {success && (
-            <div className="alert alert-success mb-4">
-              <span>{success}</span>
-              <button className="btn btn-sm btn-ghost" onClick={clearMessages}>
-                ×
-              </button>
-            </div>
-          )}
 
-          {/* Donations Dashboard */}
-          {isContractConnected && (
-            <div className="space-y-6">
-              {/* Total Earnings Summary */}
-              {receivedDonations && (
-                <div className="card bg-gradient-to-r from-primary/10 to-secondary/10 p-6">
-                  <h2 className="text-2xl font-bold mb-4">💰 Total Earnings Summary</h2>
-                  {receivedDonations.tokens && receivedDonations.tokens.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {receivedDonations.tokens.map((token: string, index: number) => (
-                        <div key={index} className="stat bg-base-100 rounded-lg p-4">
-                          <div className="stat-title text-sm opacity-70">
-                            {receivedDonations.symbols[index] || "Unknown Token"}
-                          </div>
-                          <div className="stat-value text-lg">
-                            {formatTokenAmount(receivedDonations.amounts[index], receivedDonations.symbols[index])}
-                          </div>
-                          <div className="stat-desc text-xs">
-                            Token: {token.slice(0, 6)}...{token.slice(-4)}
-                          </div>
-                        </div>
-                      ))}
+            {/* Wallet Connection Status */}
+            <div className="mb-8">
+              {(() => {
+                // Show loading state while Privy is initializing
+                if (isPrivyAvailable && !ready) {
+                  return (
+                    <div className="bg-blue-900/30 border border-blue-500/30 text-blue-300 p-4 rounded-2xl backdrop-blur-sm">
+                      <span>Initializing wallet connection...</span>
+                      <span className="loading loading-spinner loading-sm ml-2"></span>
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-base-content/70">
-                        No earnings yet. Register your content to start receiving donations!
-                      </p>
-                      <button className="btn btn-primary mt-4" onClick={() => (window.location.href = "/settings")}>
-                        Register Content
-                      </button>
+                  );
+                }
+
+                if (!isPrivyAvailable || !authenticated) {
+                  return (
+                    <div className="bg-yellow-900/30 border border-yellow-500/30 text-yellow-300 p-4 rounded-2xl backdrop-blur-sm">
+                      <span>Please connect your wallet to view your donations</span>
                     </div>
-                  )}
-                </div>
-              )}
+                  );
+                }
 
-              {/* My Contents */}
-              {creatorContents.length > 0 && (
-                <div className="card bg-base-100 p-6">
-                  <h2 className="text-2xl font-bold mb-4">📺 My Registered Contents</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {creatorContents.map((contentKey, index) => {
-                      const [username, platform] = contentKey.split("@");
-                      const donations = contentDonations[contentKey] || [];
+                if (!isContractConnected) {
+                  return (
+                    <div className="bg-blue-900/30 border border-blue-500/30 text-blue-300 p-4 rounded-2xl backdrop-blur-sm flex items-center justify-between">
+                      <span>Connecting to contract...</span>
+                      <div className="flex items-center space-x-2">
+                        {loading && <span className="loading loading-spinner loading-sm"></span>}
+                        {!loading && (
+                          <button
+                            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+                            onClick={connectWallet}
+                          >
+                            Retry Connection
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
 
-                      return (
-                        <div key={index} className="card bg-base-200 p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-bold text-lg">{username}</h3>
-                            <span className="badge badge-primary">{platform}</span>
-                          </div>
-                          <div className="text-sm text-base-content/70 mb-3">Total Donations: {donations.length}</div>
-
-                          {donations.length > 0 && (
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                              <h4 className="font-semibold text-sm">Recent Donations:</h4>
-                              {donations.slice(0, 5).map((donation: any, donationIndex: number) => (
-                                <div key={donationIndex} className="bg-base-100 p-2 rounded text-xs">
-                                  <div className="flex justify-between items-center">
-                                    <Address address={donation.donor} />
-                                    <span className="font-bold">
-                                      {formatTokenAmount(donation.amount, donation.tokenSymbol)}
-                                    </span>
-                                  </div>
-                                  <div className="text-xs text-base-content/50 mt-1">Donation ID: {donation.id}</div>
-                                </div>
-                              ))}
-                              {donations.length > 5 && (
-                                <div className="text-center text-xs text-base-content/50 pt-2">
-                                  ... and {donations.length - 5} more donations
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {donations.length === 0 && (
-                            <div className="text-center text-sm text-base-content/50 py-4">No donations yet</div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* No Content Registered */}
-              {creatorContents.length === 0 && isContractConnected && (
-                <div className="card bg-warning/10 p-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold mb-4">📝 No Content Registered</h2>
-                    <p className="text-base-content/70 mb-4">
-                      You haven&apos;t registered any content yet. Register your social media content to start receiving
-                      donations!
-                    </p>
-                    <button className="btn btn-primary" onClick={() => (window.location.href = "/settings")}>
-                      Go to Settings to Register Content
+                return (
+                  <div className="bg-green-900/30 border border-green-500/30 text-green-300 p-4 rounded-2xl backdrop-blur-sm flex items-center justify-between">
+                    <span className="flex items-center">
+                      ✅ Connected: <Address address={account} />
+                    </span>
+                    <button
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50"
+                      onClick={refreshData}
+                      disabled={loading}
+                    >
+                      {loading ? <span className="loading loading-spinner loading-xs"></span> : "🔄"} Refresh
                     </button>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
-          )}
 
-          {/* Loading Overlay */}
-          {loading && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-base-100 p-6 rounded-lg">
-                <span className="loading loading-spinner loading-lg"></span>
-                <p className="mt-2">Processing transaction...</p>
+            {/* Error/Success Messages */}
+            {error && (
+              <div className="bg-red-900/30 border border-red-500/30 text-red-300 p-4 rounded-2xl backdrop-blur-sm mb-6 flex items-center justify-between">
+                <span>{error}</span>
+                <button className="text-red-300 hover:text-red-100 p-1" onClick={clearMessages}>
+                  ×
+                </button>
               </div>
-            </div>
-          )}
+            )}
+            {success && (
+              <div className="bg-green-900/30 border border-green-500/30 text-green-300 p-4 rounded-2xl backdrop-blur-sm mb-6 flex items-center justify-between">
+                <span>{success}</span>
+                <button className="text-green-300 hover:text-green-100 p-1" onClick={clearMessages}>
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* Donations Dashboard */}
+            {isContractConnected && (
+              <div className="space-y-8">
+                {/* Total Earnings Summary */}
+                {receivedDonations && (
+                  <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-purple-500/20 shadow-2xl">
+                    <h2 className="text-3xl font-bold mb-6 text-white">💰 Total Earnings Summary</h2>
+                    {receivedDonations.tokens && receivedDonations.tokens.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {receivedDonations.tokens.map((token: string, index: number) => (
+                          <div
+                            key={index}
+                            className="bg-gray-700/50 backdrop-blur-sm p-6 rounded-xl border border-purple-500/20"
+                          >
+                            <div className="text-gray-400 text-sm mb-2">
+                              {receivedDonations.symbols[index] || "Unknown Token"}
+                            </div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                              {formatTokenAmount(receivedDonations.amounts[index], receivedDonations.symbols[index])}
+                            </div>
+                            <div className="text-gray-500 text-xs">
+                              Token: {token.slice(0, 6)}...{token.slice(-4)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-gray-400 text-lg mb-6">
+                          No earnings yet. Register your content to start receiving donations!
+                        </p>
+                        <button
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-6 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+                          onClick={() => (window.location.href = "/settings")}
+                        >
+                          Register Content
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* My Contents */}
+                {creatorContents.length > 0 && (
+                  <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-purple-500/20 shadow-2xl">
+                    <h2 className="text-3xl font-bold mb-6 text-white">📺 My Registered Contents</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {creatorContents.map((contentKey, index) => {
+                        const [username, platform] = contentKey.split("@");
+                        const donations = contentDonations[contentKey] || [];
+
+                        return (
+                          <div
+                            key={index}
+                            className="bg-gray-700/50 backdrop-blur-sm p-6 rounded-xl border border-purple-500/20"
+                          >
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="font-bold text-xl text-white">{username}</h3>
+                              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                                {platform}
+                              </span>
+                            </div>
+                            <div className="text-gray-400 mb-4">Total Donations: {donations.length}</div>
+
+                            {donations.length > 0 && (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                <h4 className="font-semibold text-white">Recent Donations:</h4>
+                                {donations.slice(0, 5).map((donation: any, donationIndex: number) => (
+                                  <div key={donationIndex} className="bg-gray-600/50 p-3 rounded-lg">
+                                    <div className="flex justify-between items-center">
+                                      <Address address={donation.donor} />
+                                      <span className="font-bold text-purple-400">
+                                        {formatTokenAmount(donation.amount, donation.tokenSymbol)}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">Donation ID: {donation.id}</div>
+                                  </div>
+                                ))}
+                                {donations.length > 5 && (
+                                  <div className="text-center text-xs text-gray-500 pt-2">
+                                    ... and {donations.length - 5} more donations
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {donations.length === 0 && (
+                              <div className="text-center text-gray-400 py-6">No donations yet</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Content Registered */}
+                {creatorContents.length === 0 && isContractConnected && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 p-8 rounded-2xl backdrop-blur-sm">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-bold mb-6 text-white">📝 No Content Registered</h2>
+                      <p className="text-gray-400 text-lg mb-6">
+                        You haven&apos;t registered any content yet. Register your social media content to start
+                        receiving donations!
+                      </p>
+                      <button
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-6 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+                        onClick={() => (window.location.href = "/settings")}
+                      >
+                        Go to Settings to Register Content
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Loading Overlay */}
+            {loading && (
+              <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+                <div className="bg-gray-800/90 backdrop-blur-sm border border-purple-500/30 p-8 rounded-2xl">
+                  <span className="loading loading-spinner loading-lg text-purple-400"></span>
+                  <p className="mt-4 text-white">Processing transaction...</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

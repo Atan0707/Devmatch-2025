@@ -305,168 +305,184 @@ const Withdraw: NextPage = () => {
   return (
     <>
       <Navbar />
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <div className="max-w-2xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Withdraw Funds</h1>
-            <p className="text-base-content/70">Withdraw your earnings to your wallet</p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+        <div className="container mx-auto px-4 py-8 pt-24">
+          <div className="max-w-2xl mx-auto">
+            {/* Page Header */}
+            <div className="mb-12">
+              <h1 className="text-4xl font-bold mb-3 text-white">Withdraw Funds</h1>
+              <p className="text-gray-400 text-lg">Withdraw your earnings to your wallet</p>
+            </div>
 
-          {/* Wallet Info */}
-          <div className="bg-base-100 p-6 rounded-lg shadow-lg mb-6">
-            <h3 className="text-lg font-semibold mb-4">Wallet Information</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-base-content/70">Connected Address:</span>
-                <Address address={userAddress} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-base-content/70">Available Balance:</span>
-                {isLoadingBalance ? (
-                  <span className="loading loading-spinner loading-sm"></span>
-                ) : (
-                  <div className="text-right">
-                    {availableBalance.tokens.filter(token => token.symbol === "USDC").length > 0 ? (
-                      availableBalance.tokens
-                        .filter(token => token.symbol === "USDC")
-                        .map((token, index) => (
-                          <div key={index} className="text-xl font-bold text-primary">
-                            {parseFloat(token.amount).toFixed(2)} {token.symbol}
-                          </div>
-                        ))
+            {/* Wallet Info */}
+            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-purple-500/20 shadow-2xl mb-8">
+              <h3 className="text-2xl font-semibold mb-6 text-white">Wallet Information</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Connected Address:</span>
+                  <Address address={userAddress} />
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Available Balance:</span>
+                  {isLoadingBalance ? (
+                    <span className="loading loading-spinner loading-sm text-purple-400"></span>
+                  ) : (
+                    <div className="text-right">
+                      {availableBalance.tokens.filter(token => token.symbol === "USDC").length > 0 ? (
+                        availableBalance.tokens
+                          .filter(token => token.symbol === "USDC")
+                          .map((token, index) => (
+                            <div
+                              key={index}
+                              className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                            >
+                              {parseFloat(token.amount).toFixed(2)} {token.symbol}
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                          0.00 USDC
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Debug: Show supported tokens */}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Supported Tokens:</span>
+                  <div className="text-right text-sm">
+                    {supportedTokens.symbols.length > 0 ? (
+                      supportedTokens.symbols.map((symbol, index) => (
+                        <div key={index} className="text-purple-400">
+                          {symbol}
+                        </div>
+                      ))
                     ) : (
-                      <div className="text-xl font-bold text-primary">0.00 USDC</div>
+                      <span className="text-gray-500">Loading...</span>
                     )}
                   </div>
-                )}
-              </div>
-              {/* Debug: Show supported tokens */}
-              <div className="flex justify-between items-center">
-                <span className="text-base-content/70">Supported Tokens:</span>
-                <div className="text-right text-sm">
-                  {supportedTokens.symbols.length > 0 ? (
-                    supportedTokens.symbols.map((symbol, index) => <div key={index}>{symbol}</div>)
-                  ) : (
-                    <span className="text-base-content/50">Loading...</span>
-                  )}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Withdrawal Form */}
-          <div className="bg-base-100 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-semibold mb-6">Withdrawal Details</h3>
+            {/* Withdrawal Form */}
+            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-purple-500/20 shadow-2xl">
+              <h3 className="text-2xl font-semibold mb-8 text-white">Withdrawal Details</h3>
 
-            <div className="space-y-6">
-              {/* Amount Input */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">Withdrawal Amount (USDC)</span>
-                </label>
-                <div className="input-group">
-                  <span className="bg-base-200 px-4 flex items-center">$</span>
-                  <input
-                    type="text"
-                    placeholder="0.00"
-                    className={`input input-bordered flex-1 text-right ${error ? "input-error" : ""}`}
-                    value={withdrawAmount}
-                    onChange={handleAmountChange}
-                    disabled={isWithdrawing || isLoadingBalance}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={setMaxAmount}
-                    disabled={
-                      isWithdrawing ||
-                      isLoadingBalance ||
-                      !availableBalance.tokens.find(t => t.symbol === "USDC") ||
-                      parseFloat(availableBalance.tokens.find(t => t.symbol === "USDC")?.amount || "0") === 0
-                    }
-                  >
-                    MAX
-                  </button>
-                </div>
-                {error && (
+              <div className="space-y-8">
+                {/* Amount Input */}
+                <div className="form-control">
                   <label className="label">
-                    <span className="label-text-alt text-error">{error}</span>
+                    <span className="text-white font-medium text-lg">Withdrawal Amount (USDC)</span>
                   </label>
-                )}
-              </div>
+                  <div className="flex">
+                    <span className="bg-gray-600/50 px-4 flex items-center text-purple-400 font-bold rounded-l-lg border border-gray-500/30">
+                      $
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="0.00"
+                      className={`flex-1 bg-gray-700/50 border border-gray-500/30 px-4 py-3 text-white placeholder-gray-400 text-right focus:border-purple-500/50 focus:outline-none ${error ? "border-red-500/50" : ""}`}
+                      value={withdrawAmount}
+                      onChange={handleAmountChange}
+                      disabled={isWithdrawing || isLoadingBalance}
+                    />
+                    <button
+                      type="button"
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-r-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50"
+                      onClick={setMaxAmount}
+                      disabled={
+                        isWithdrawing ||
+                        isLoadingBalance ||
+                        !availableBalance.tokens.find(t => t.symbol === "USDC") ||
+                        parseFloat(availableBalance.tokens.find(t => t.symbol === "USDC")?.amount || "0") === 0
+                      }
+                    >
+                      MAX
+                    </button>
+                  </div>
+                  {error && (
+                    <label className="label">
+                      <span className="text-red-400 text-sm">{error}</span>
+                    </label>
+                  )}
+                </div>
 
-              {/* Withdrawal Summary */}
-              {withdrawAmount && !error && (
-                <div className="bg-base-200 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">Withdrawal Summary</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Withdrawal Method:</span>
-                      <span>USDC Token Withdrawal</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>USDC Amount:</span>
-                      <span>${parseFloat(withdrawAmount || "0").toFixed(2)} USDC</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Network Fee:</span>
-                      <span>Estimated gas fee (paid in ETH)</span>
+                {/* Withdrawal Summary */}
+                {withdrawAmount && !error && (
+                  <div className="bg-gray-700/50 p-6 rounded-xl border border-purple-500/20 backdrop-blur-sm">
+                    <h4 className="font-medium mb-4 text-white text-lg">Withdrawal Summary</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Withdrawal Method:</span>
+                        <span className="text-purple-400">USDC Token Withdrawal</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">USDC Amount:</span>
+                        <span className="text-purple-400 font-bold">
+                          ${parseFloat(withdrawAmount || "0").toFixed(2)} USDC
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Network Fee:</span>
+                        <span className="text-gray-300">Estimated gas fee (paid in ETH)</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Success Message */}
-              {withdrawalSuccess && (
-                <div className="alert alert-success">
-                  <svg className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>Withdrawal successful! Funds will arrive in your wallet shortly.</span>
-                </div>
-              )}
+                {/* Success Message */}
+                {withdrawalSuccess && (
+                  <div className="bg-green-900/30 border border-green-500/30 text-green-300 p-4 rounded-2xl backdrop-blur-sm flex items-center space-x-3">
+                    <svg className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>Withdrawal successful! Funds will arrive in your wallet shortly.</span>
+                  </div>
+                )}
 
-              {/* Withdraw Button */}
-              <button
-                type="button"
-                className={`btn btn-primary w-full ${isWithdrawing ? "loading" : ""}`}
-                onClick={handleWithdraw}
-                disabled={
-                  !availableBalance.tokens.find(t => t.symbol === "USDC") ||
-                  parseFloat(availableBalance.tokens.find(t => t.symbol === "USDC")?.amount || "0") === 0 ||
-                  isWithdrawing ||
-                  withdrawalSuccess ||
-                  isLoadingBalance
-                }
-              >
-                {isWithdrawing ? "Processing Withdrawal..." : "Withdraw USDC"}
-              </button>
+                {/* Withdraw Button */}
+                <button
+                  type="button"
+                  className={`w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-6 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 flex items-center justify-center space-x-2 ${isWithdrawing ? "cursor-not-allowed" : ""}`}
+                  onClick={handleWithdraw}
+                  disabled={
+                    !availableBalance.tokens.find(t => t.symbol === "USDC") ||
+                    parseFloat(availableBalance.tokens.find(t => t.symbol === "USDC")?.amount || "0") === 0 ||
+                    isWithdrawing ||
+                    withdrawalSuccess ||
+                    isLoadingBalance
+                  }
+                >
+                  {isWithdrawing && <span className="loading loading-spinner loading-sm"></span>}
+                  <span>{isWithdrawing ? "Processing Withdrawal..." : "Withdraw USDC"}</span>
+                </button>
 
-              {/* Info Note */}
-              <div className="bg-info/10 border border-info/20 p-4 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <svg className="w-5 h-5 text-info mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <div className="text-sm">
-                    <p className="font-medium text-info mb-1">Withdrawal Information</p>
-                    <ul className="space-y-1 text-base-content/70">
-                      <li>• Withdrawals will transfer your available USDC earnings only</li>
-                      <li>• Transactions are processed on Base Sepolia testnet</li>
-                      <li>• Network fees are paid in ETH from your wallet balance</li>
-                      <li>• Once confirmed, USDC will appear in your connected wallet</li>
-                      <li>• You can only withdraw USDC earnings from donations received</li>
-                    </ul>
+                {/* Info Note */}
+                <div className="bg-blue-900/20 border border-blue-500/30 p-6 rounded-2xl backdrop-blur-sm">
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-6 h-6 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div>
+                      <p className="font-medium text-blue-400 mb-3 text-lg">Withdrawal Information</p>
+                      <ul className="space-y-2 text-gray-300">
+                        <li>• Withdrawals will transfer your available USDC earnings only</li>
+                        <li>• Transactions are processed on Base Sepolia testnet</li>
+                        <li>• Network fees are paid in ETH from your wallet balance</li>
+                        <li>• Once confirmed, USDC will appear in your connected wallet</li>
+                        <li>• You can only withdraw USDC earnings from donations received</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>

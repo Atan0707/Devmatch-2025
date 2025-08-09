@@ -454,28 +454,33 @@ const Settings: NextPage = () => {
             <h3 className="text-lg font-semibold mb-4">Registered Platforms Summary</h3>
 
             {platforms.filter(p => p.registered && p.username).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {platforms
                   .filter(platform => platform.registered && platform.username)
                   .map(platform => (
-                    <div key={platform.id} className="bg-base-200 p-4 rounded-lg border-l-4 border-success">
+                    <div
+                      key={platform.id}
+                      className="bg-gray-700/50 p-6 rounded-xl border-l-4 border-green-500 backdrop-blur-sm"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <span className="text-2xl">{platform.icon}</span>
                           <div>
-                            <div className="font-medium">{platform.name}</div>
-                            <div className="text-sm text-base-content/70">@{platform.username}</div>
+                            <div className="font-medium text-white">{platform.name}</div>
+                            <div className="text-sm text-gray-400">@{platform.username}</div>
                           </div>
                         </div>
-                        <div className="badge badge-success">Registered</div>
+                        <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                          Registered
+                        </div>
                       </div>
                     </div>
                   ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-base-content/50">
-                <p>No platforms registered yet.</p>
-                <p className="text-sm">
+              <div className="text-center py-12">
+                <p className="text-gray-400 text-lg">No platforms registered yet.</p>
+                <p className="text-gray-500 mt-2">
                   Enable platforms above to register your social media accounts on the blockchain.
                 </p>
               </div>
