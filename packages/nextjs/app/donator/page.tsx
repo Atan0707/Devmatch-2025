@@ -7,7 +7,7 @@ import type { NextPage } from "next";
 import { Navbar } from "~~/components";
 import { usePrivyAvailability } from "~~/components/PrivyClientProvider";
 import { Address } from "~~/components/scaffold-eth";
-import { COMMON_TOKENS, PisangContractFunctions, SUPPORTED_PLATFORMS } from "~~/contracts/contractFunction";
+import { PisangContractFunctions } from "~~/contracts/contractFunction";
 
 const Donator: NextPage = () => {
   const { isPrivyAvailable } = usePrivyAvailability();
@@ -23,45 +23,10 @@ const Donator: NextPage = () => {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
 
-  // Active tab state
-  const [activeTab, setActiveTab] = useState<string>("content");
-
-  // Content Management State
-  const [contentForm, setContentForm] = useState({
-    username: "",
-    platform: "twitch",
-    newUsername: "",
-    newOwner: "",
-    oldUsername: "",
-  });
-
-  // Donation State
-  const [donationForm, setDonationForm] = useState({
-    username: "",
-    platform: "twitch",
-    ethAmount: "",
-    tokenAddress: "",
-    tokenAmount: "",
-    tokenDecimals: "18",
-  });
-
-  // View State
-  const [viewData, setViewData] = useState<any>(null);
-  const [viewForm, setViewForm] = useState({
-    username: "",
-    platform: "twitch",
-    address: "",
-    tokenAddress: "",
-    donationId: "",
-  });
-
-  // Admin State
-  const [adminForm, setAdminForm] = useState({
-    tokenAddress: "",
-    tokenSymbol: "",
-    platformName: "",
-    platformFee: "",
-  });
+  // Donations data
+  const [receivedDonations, setReceivedDonations] = useState<any>(null);
+  const [creatorContents, setCreatorContents] = useState<string[]>([]);
+  const [contentDonations, setContentDonations] = useState<{ [key: string]: any }>({});
 
   const connectWallet = useCallback(async () => {
     try {
@@ -85,6 +50,9 @@ const Donator: NextPage = () => {
       setAccount(walletAddress);
       setPisangContract(pisangContract);
       setSuccess("Wallet connected successfully!");
+
+      // Load donation data after connecting
+      await loadDonationData(pisangContract, walletAddress);
     } catch (err: any) {
       console.error("Failed to connect to contract:", err);
       setError(err.message);
@@ -92,6 +60,59 @@ const Donator: NextPage = () => {
       setLoading(false);
     }
   }, [isPrivyAvailable, authenticated, wallets, signTransaction]);
+
+  const loadDonationData = async (contract: PisangContractFunctions, address: string) => {
+    try {
+      setLoading(true);
+
+      // Get creator earnings (donations received)
+      const earnings = await contract.getCreatorAllEarnings(address);
+      setReceivedDonations(earnings);
+
+      // Get creator contents
+      const contents = await contract.getCreatorContents(address);
+      setCreatorContents(contents);
+
+      // Get donations for each content
+      const contentDonationsMap: { [key: string]: any } = {};
+      for (const contentKey of contents) {
+        try {
+          const [username, platform] = contentKey.split("@");
+          const recentDonations = await contract.getRecentDonations(username, platform, 50);
+
+          // Get details for each donation
+          const donationDetails = [];
+          for (const donationId of recentDonations) {
+            try {
+              const donation = await contract.getDonation(donationId);
+              donationDetails.push({
+                id: donationId,
+                ...donation,
+              });
+            } catch (err) {
+              console.warn(`Failed to get donation ${donationId}:`, err);
+            }
+          }
+
+          contentDonationsMap[contentKey] = donationDetails;
+        } catch (err) {
+          console.warn(`Failed to get donations for ${contentKey}:`, err);
+        }
+      }
+      setContentDonations(contentDonationsMap);
+    } catch (err: any) {
+      console.error("Failed to load donation data:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshData = async () => {
+    if (pisangContract && account) {
+      await loadDonationData(pisangContract, account);
+    }
+  };
 
   // Connect to contract when wallet is connected
   useEffect(() => {
@@ -105,199 +126,19 @@ const Donator: NextPage = () => {
     setSuccess("");
   };
 
-  const handleTransaction = async (operation: () => Promise<any>, successMessage: string) => {
-    try {
-      setLoading(true);
-      clearMessages();
-      const result = await operation();
-      setSuccess(`${successMessage} - Transaction: ${result.txHash}`);
-      return result;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+  const formatTokenAmount = (amount: bigint, symbol: string) => {
+    // Convert bigint to string and format for display
+    const amountStr = amount.toString();
+    if (symbol === "ETH" || symbol === "") {
+      // For ETH, divide by 10^18
+      const ethAmount = Number(amountStr) / 1e18;
+      return `${ethAmount.toFixed(6)} ETH`;
+    } else {
+      // For other tokens, assume 18 decimals for now
+      const tokenAmount = Number(amountStr) / 1e18;
+      return `${tokenAmount.toFixed(6)} ${symbol}`;
     }
   };
-
-  // Content Management Functions
-  const deactivateContent = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.deactivateContent(contentForm.username, contentForm.platform),
-      "Content deactivated successfully",
-    );
-  };
-
-  const reactivateContent = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.reactivateContent(contentForm.username, contentForm.platform),
-      "Content reactivated successfully",
-    );
-  };
-
-  const transferContentOwnership = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.transferContentOwnership(contentForm.username, contentForm.platform, contentForm.newOwner),
-      "Content ownership transferred successfully",
-    );
-  };
-
-  const changeUsername = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.changeUsername(contentForm.oldUsername, contentForm.newUsername, contentForm.platform),
-      "Username changed successfully",
-    );
-  };
-
-  // Donation Functions
-  const donateEth = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.donateEthToContent(donationForm.username, donationForm.platform, donationForm.ethAmount),
-      "ETH donation successful",
-    );
-  };
-
-  const donateToken = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () =>
-        pisangContract.donateTokenToContent(
-          donationForm.username,
-          donationForm.platform,
-          donationForm.tokenAddress,
-          donationForm.tokenAmount,
-        ),
-      "Token donation successful",
-    );
-  };
-
-  // Withdrawal Functions
-  const withdrawEthEarnings = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(() => pisangContract.withdrawEthEarnings(), "ETH earnings withdrawn successfully");
-  };
-
-  const withdrawTokenEarnings = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.withdrawTokenEarnings(adminForm.tokenAddress),
-      "Token earnings withdrawn successfully",
-    );
-  };
-
-  const withdrawAllEarnings = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(() => pisangContract.withdrawAllEarnings(), "All earnings withdrawn successfully");
-  };
-
-  // View Functions
-  const getContentInfo = async () => {
-    if (!pisangContract) return;
-    try {
-      setLoading(true);
-      const content = await pisangContract.getContent(viewForm.username, viewForm.platform);
-      setViewData({ type: "content", data: content });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getCreatorEarnings = async () => {
-    if (!pisangContract) return;
-    try {
-      setLoading(true);
-      const earnings = await pisangContract.getCreatorAllEarnings(viewForm.address);
-      setViewData({ type: "earnings", data: earnings });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getDonationInfo = async () => {
-    if (!pisangContract) return;
-    try {
-      setLoading(true);
-      const donation = await pisangContract.getDonation(parseInt(viewForm.donationId));
-      setViewData({ type: "donation", data: donation });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getRecentDonations = async () => {
-    if (!pisangContract) return;
-    try {
-      setLoading(true);
-      const donations = await pisangContract.getRecentDonations(viewForm.username, viewForm.platform, 10);
-      setViewData({ type: "recentDonations", data: donations });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Admin Functions
-  const addSupportedToken = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.addSupportedToken(adminForm.tokenAddress, adminForm.tokenSymbol),
-      "Token added successfully",
-    );
-  };
-
-  const addSupportedPlatform = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.addSupportedPlatform(adminForm.platformName),
-      "Platform added successfully",
-    );
-  };
-
-  const updatePlatformFee = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.updatePlatformFee(parseInt(adminForm.platformFee)),
-      "Platform fee updated successfully",
-    );
-  };
-
-  const withdrawPlatformFeesEth = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(() => pisangContract.withdrawPlatformFeesEth(), "Platform ETH fees withdrawn successfully");
-  };
-
-  const withdrawPlatformFeesToken = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(
-      () => pisangContract.withdrawPlatformFeesToken(adminForm.tokenAddress),
-      "Platform token fees withdrawn successfully",
-    );
-  };
-
-  const withdrawAllPlatformFees = async () => {
-    if (!pisangContract) return;
-    await handleTransaction(() => pisangContract.withdrawAllPlatformFees(), "All platform fees withdrawn successfully");
-  };
-
-  const tabs = [
-    { id: "content", label: "Content Management", icon: "📝" },
-    { id: "donate", label: "Donations", icon: "💰" },
-    { id: "withdraw", label: "Withdrawals", icon: "💸" },
-    { id: "view", label: "View Data", icon: "👁️" },
-    { id: "admin", label: "Admin", icon: "⚙️" },
-  ];
 
   return (
     <>
@@ -306,8 +147,8 @@ const Donator: NextPage = () => {
         <div className="max-w-6xl mx-auto">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">PisangContract Interface</h1>
-            <p className="text-base-content/70">Complete interface for interacting with the PisangContract</p>
+            <h1 className="text-3xl font-bold mb-2">📊 My Donations Dashboard</h1>
+            <p className="text-base-content/70">View all donations received to your wallet address</p>
           </div>
 
           {/* Wallet Connection Status */}
@@ -326,7 +167,7 @@ const Donator: NextPage = () => {
               if (!isPrivyAvailable || !authenticated) {
                 return (
                   <div className="alert alert-warning">
-                    <span>Please connect your wallet to interact with the contract</span>
+                    <span>Please connect your wallet to view your donations</span>
                   </div>
                 );
               }
@@ -350,6 +191,9 @@ const Donator: NextPage = () => {
                   <span>
                     ✅ Connected: <Address address={account} />
                   </span>
+                  <button className="btn btn-sm btn-primary" onClick={refreshData} disabled={loading}>
+                    {loading ? <span className="loading loading-spinner loading-xs"></span> : "🔄"} Refresh
+                  </button>
                 </div>
               );
             })()}
@@ -373,492 +217,108 @@ const Donator: NextPage = () => {
             </div>
           )}
 
-          {/* Tab Navigation */}
-          <div className="tabs tabs-boxed mb-6">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                className={`tab ${activeTab === tab.id ? "tab-active" : ""}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab Content */}
-          <div className="bg-base-100 rounded-lg shadow-lg p-6">
-            {/* Content Management Tab */}
-            {activeTab === "content" && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold mb-4">Content Management</h2>
-
-                {/* Register Content Notice */}
-                <div className="alert alert-info">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="stroke-current shrink-0 w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    ></path>
-                  </svg>
-                  <div>
-                    <h3 className="font-bold">Register Your Content First!</h3>
-                    <div className="text-sm">
-                      Go to Settings to register your social media content on the blockchain before using these
-                      management features.
-                    </div>
-                  </div>
-                  <div>
-                    <button className="btn btn-sm btn-outline" onClick={() => (window.location.href = "/settings")}>
-                      Go to Settings
-                    </button>
-                  </div>
-                </div>
-
-                {/* Content Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">Content Actions</h3>
-                    <div className="space-y-2">
-                      <button
-                        className="btn btn-warning btn-sm w-full"
-                        onClick={deactivateContent}
-                        disabled={loading || !isContractConnected}
-                      >
-                        Deactivate Content
-                      </button>
-                      <button
-                        className="btn btn-success btn-sm w-full"
-                        onClick={reactivateContent}
-                        disabled={loading || !isContractConnected}
-                      >
-                        Reactivate Content
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">Transfer Ownership</h3>
-                    <input
-                      type="text"
-                      placeholder="New Owner Address"
-                      className="input input-bordered w-full mb-2"
-                      value={contentForm.newOwner}
-                      onChange={e => setContentForm({ ...contentForm, newOwner: e.target.value })}
-                    />
-                    <button
-                      className="btn btn-secondary btn-sm w-full"
-                      onClick={transferContentOwnership}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Transfer Ownership
-                    </button>
-                  </div>
-                </div>
-
-                {/* Change Username */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Change Username</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Old Username"
-                      className="input input-bordered"
-                      value={contentForm.oldUsername}
-                      onChange={e => setContentForm({ ...contentForm, oldUsername: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      placeholder="New Username"
-                      className="input input-bordered"
-                      value={contentForm.newUsername}
-                      onChange={e => setContentForm({ ...contentForm, newUsername: e.target.value })}
-                    />
-                  </div>
-                  <button
-                    className="btn btn-info mt-3"
-                    onClick={changeUsername}
-                    disabled={loading || !isContractConnected}
-                  >
-                    Change Username
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Donations Tab */}
-            {activeTab === "donate" && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold mb-4">Make Donations</h2>
-
-                {/* Target Content */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Target Content</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Username"
-                      className="input input-bordered"
-                      value={donationForm.username}
-                      onChange={e => setDonationForm({ ...donationForm, username: e.target.value })}
-                    />
-                    <select
-                      className="select select-bordered"
-                      value={donationForm.platform}
-                      onChange={e => setDonationForm({ ...donationForm, platform: e.target.value })}
-                    >
-                      {SUPPORTED_PLATFORMS.map(platform => (
-                        <option key={platform} value={platform}>
-                          {platform}
-                        </option>
+          {/* Donations Dashboard */}
+          {isContractConnected && (
+            <div className="space-y-6">
+              {/* Total Earnings Summary */}
+              {receivedDonations && (
+                <div className="card bg-gradient-to-r from-primary/10 to-secondary/10 p-6">
+                  <h2 className="text-2xl font-bold mb-4">💰 Total Earnings Summary</h2>
+                  {receivedDonations.tokens && receivedDonations.tokens.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {receivedDonations.tokens.map((token: string, index: number) => (
+                        <div key={index} className="stat bg-base-100 rounded-lg p-4">
+                          <div className="stat-title text-sm opacity-70">
+                            {receivedDonations.symbols[index] || "Unknown Token"}
+                          </div>
+                          <div className="stat-value text-lg">
+                            {formatTokenAmount(receivedDonations.amounts[index], receivedDonations.symbols[index])}
+                          </div>
+                          <div className="stat-desc text-xs">
+                            Token: {token.slice(0, 6)}...{token.slice(-4)}
+                          </div>
+                        </div>
                       ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* ETH Donation */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Donate ETH</h3>
-                  <div className="flex gap-4">
-                    <input
-                      type="number"
-                      placeholder="Amount in ETH"
-                      className="input input-bordered flex-1"
-                      step="0.001"
-                      value={donationForm.ethAmount}
-                      onChange={e => setDonationForm({ ...donationForm, ethAmount: e.target.value })}
-                    />
-                    <button className="btn btn-primary" onClick={donateEth} disabled={loading || !isContractConnected}>
-                      Donate ETH
-                    </button>
-                  </div>
-                </div>
-
-                {/* Token Donation */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Donate Tokens</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <input
-                      type="text"
-                      placeholder="Token Address"
-                      className="input input-bordered"
-                      value={donationForm.tokenAddress}
-                      onChange={e => setDonationForm({ ...donationForm, tokenAddress: e.target.value })}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Amount"
-                      className="input input-bordered"
-                      step="0.000001"
-                      value={donationForm.tokenAmount}
-                      onChange={e => setDonationForm({ ...donationForm, tokenAmount: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex gap-4">
-                    <input
-                      type="number"
-                      placeholder="Decimals (default: 18)"
-                      className="input input-bordered flex-1"
-                      value={donationForm.tokenDecimals}
-                      onChange={e => setDonationForm({ ...donationForm, tokenDecimals: e.target.value })}
-                    />
-                    <button
-                      className="btn btn-secondary"
-                      onClick={donateToken}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Donate Tokens
-                    </button>
-                  </div>
-                </div>
-
-                {/* Common Tokens */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Common Tokens</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(COMMON_TOKENS).map(([name, address]) => (
-                      <button
-                        key={name}
-                        className="btn btn-outline btn-sm"
-                        onClick={() => setDonationForm({ ...donationForm, tokenAddress: address })}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Withdrawals Tab */}
-            {activeTab === "withdraw" && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold mb-4">Withdraw Earnings</h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">ETH Earnings</h3>
-                    <button
-                      className="btn btn-primary w-full"
-                      onClick={withdrawEthEarnings}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Withdraw ETH
-                    </button>
-                  </div>
-
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">Token Earnings</h3>
-                    <input
-                      type="text"
-                      placeholder="Token Address"
-                      className="input input-bordered w-full mb-2"
-                      value={adminForm.tokenAddress}
-                      onChange={e => setAdminForm({ ...adminForm, tokenAddress: e.target.value })}
-                    />
-                    <button
-                      className="btn btn-secondary w-full"
-                      onClick={withdrawTokenEarnings}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Withdraw Token
-                    </button>
-                  </div>
-
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">All Earnings</h3>
-                    <button
-                      className="btn btn-accent w-full"
-                      onClick={withdrawAllEarnings}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Withdraw All
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* View Data Tab */}
-            {activeTab === "view" && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold mb-4">View Contract Data</h2>
-
-                {/* View Forms */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">Content Info</h3>
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Username"
-                        className="input input-bordered w-full"
-                        value={viewForm.username}
-                        onChange={e => setViewForm({ ...viewForm, username: e.target.value })}
-                      />
-                      <select
-                        className="select select-bordered w-full"
-                        value={viewForm.platform}
-                        onChange={e => setViewForm({ ...viewForm, platform: e.target.value })}
-                      >
-                        {SUPPORTED_PLATFORMS.map(platform => (
-                          <option key={platform} value={platform}>
-                            {platform}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="btn btn-primary btn-sm w-full"
-                        onClick={getContentInfo}
-                        disabled={loading || !isContractConnected}
-                      >
-                        Get Content Info
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-sm w-full"
-                        onClick={getRecentDonations}
-                        disabled={loading || !isContractConnected}
-                      >
-                        Get Recent Donations
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-base-content/70">
+                        No earnings yet. Register your content to start receiving donations!
+                      </p>
+                      <button className="btn btn-primary mt-4" onClick={() => (window.location.href = "/settings")}>
+                        Register Content
                       </button>
                     </div>
-                  </div>
+                  )}
+                </div>
+              )}
 
-                  <div className="card bg-base-200 p-4">
-                    <h3 className="text-lg font-semibold mb-3">Creator Earnings</h3>
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Creator Address"
-                        className="input input-bordered w-full"
-                        value={viewForm.address}
-                        onChange={e => setViewForm({ ...viewForm, address: e.target.value })}
-                      />
-                      <button
-                        className="btn btn-info btn-sm w-full"
-                        onClick={getCreatorEarnings}
-                        disabled={loading || !isContractConnected}
-                      >
-                        Get Creator Earnings
-                      </button>
-                    </div>
+              {/* My Contents */}
+              {creatorContents.length > 0 && (
+                <div className="card bg-base-100 p-6">
+                  <h2 className="text-2xl font-bold mb-4">📺 My Registered Contents</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {creatorContents.map((contentKey, index) => {
+                      const [username, platform] = contentKey.split("@");
+                      const donations = contentDonations[contentKey] || [];
+
+                      return (
+                        <div key={index} className="card bg-base-200 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-lg">{username}</h3>
+                            <span className="badge badge-primary">{platform}</span>
+                          </div>
+                          <div className="text-sm text-base-content/70 mb-3">Total Donations: {donations.length}</div>
+
+                          {donations.length > 0 && (
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              <h4 className="font-semibold text-sm">Recent Donations:</h4>
+                              {donations.slice(0, 5).map((donation: any, donationIndex: number) => (
+                                <div key={donationIndex} className="bg-base-100 p-2 rounded text-xs">
+                                  <div className="flex justify-between items-center">
+                                    <Address address={donation.donor} />
+                                    <span className="font-bold">
+                                      {formatTokenAmount(donation.amount, donation.tokenSymbol)}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-base-content/50 mt-1">Donation ID: {donation.id}</div>
+                                </div>
+                              ))}
+                              {donations.length > 5 && (
+                                <div className="text-center text-xs text-base-content/50 pt-2">
+                                  ... and {donations.length - 5} more donations
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {donations.length === 0 && (
+                            <div className="text-center text-sm text-base-content/50 py-4">No donations yet</div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+              )}
 
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Donation Info</h3>
-                  <div className="flex gap-4">
-                    <input
-                      type="number"
-                      placeholder="Donation ID"
-                      className="input input-bordered flex-1"
-                      value={viewForm.donationId}
-                      onChange={e => setViewForm({ ...viewForm, donationId: e.target.value })}
-                    />
-                    <button
-                      className="btn btn-accent"
-                      onClick={getDonationInfo}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Get Donation Info
+              {/* No Content Registered */}
+              {creatorContents.length === 0 && isContractConnected && (
+                <div className="card bg-warning/10 p-6">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-4">📝 No Content Registered</h2>
+                    <p className="text-base-content/70 mb-4">
+                      You haven&apos;t registered any content yet. Register your social media content to start receiving
+                      donations!
+                    </p>
+                    <button className="btn btn-primary" onClick={() => (window.location.href = "/settings")}>
+                      Go to Settings to Register Content
                     </button>
                   </div>
                 </div>
-
-                {/* Display Results */}
-                {viewData && (
-                  <div className="card bg-base-300 p-4">
-                    <h3 className="text-lg font-semibold mb-3">Results</h3>
-                    <pre className="bg-base-100 p-4 rounded text-sm overflow-auto max-h-96">
-                      {JSON.stringify(
-                        viewData,
-                        (key, value) => (typeof value === "bigint" ? value.toString() : value),
-                        2,
-                      )}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Admin Tab */}
-            {activeTab === "admin" && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold mb-4">Admin Functions</h2>
-                <div className="alert alert-warning">
-                  <span>⚠️ These functions are only available to the contract owner</span>
-                </div>
-
-                {/* Token Management */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Token Management</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <input
-                      type="text"
-                      placeholder="Token Address"
-                      className="input input-bordered"
-                      value={adminForm.tokenAddress}
-                      onChange={e => setAdminForm({ ...adminForm, tokenAddress: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Token Symbol"
-                      className="input input-bordered"
-                      value={adminForm.tokenSymbol}
-                      onChange={e => setAdminForm({ ...adminForm, tokenSymbol: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={addSupportedToken}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Add Token
-                    </button>
-                  </div>
-                </div>
-
-                {/* Platform Management */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Platform Management</h3>
-                  <div className="flex gap-4 mb-4">
-                    <input
-                      type="text"
-                      placeholder="Platform Name"
-                      className="input input-bordered flex-1"
-                      value={adminForm.platformName}
-                      onChange={e => setAdminForm({ ...adminForm, platformName: e.target.value })}
-                    />
-                    <button
-                      className="btn btn-success"
-                      onClick={addSupportedPlatform}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Add Platform
-                    </button>
-                  </div>
-                </div>
-
-                {/* Fee Management */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Fee Management</h3>
-                  <div className="flex gap-4 mb-4">
-                    <input
-                      type="number"
-                      placeholder="Platform Fee (basis points, e.g., 250 = 2.5%)"
-                      className="input input-bordered flex-1"
-                      value={adminForm.platformFee}
-                      onChange={e => setAdminForm({ ...adminForm, platformFee: e.target.value })}
-                    />
-                    <button
-                      className="btn btn-warning"
-                      onClick={updatePlatformFee}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Update Fee
-                    </button>
-                  </div>
-                </div>
-
-                {/* Platform Fee Withdrawals */}
-                <div className="card bg-base-200 p-4">
-                  <h3 className="text-lg font-semibold mb-3">Withdraw Platform Fees</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={withdrawPlatformFeesEth}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Withdraw ETH Fees
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={withdrawPlatformFeesToken}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Withdraw Token Fees
-                    </button>
-                    <button
-                      className="btn btn-accent btn-sm"
-                      onClick={withdrawAllPlatformFees}
-                      disabled={loading || !isContractConnected}
-                    >
-                      Withdraw All Fees
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Loading Overlay */}
           {loading && (
