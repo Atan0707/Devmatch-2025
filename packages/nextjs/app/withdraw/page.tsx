@@ -29,6 +29,10 @@ const Withdraw: NextPage = () => {
     tokens: [],
   });
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
+  const [supportedTokens, setSupportedTokens] = useState<{ addresses: string[]; symbols: string[] }>({
+    addresses: [],
+    symbols: [],
+  });
 
   // Get user wallet info
   const connectedWallet = wallets.find(wallet => wallet.walletClientType !== "privy");
@@ -71,13 +75,24 @@ const Withdraw: NextPage = () => {
 
         // Process token earnings (skip first element which is ETH)
         for (let i = 1; i < tokens.length; i++) {
-          if (amounts[i] > 0n) {
-            tokenEarnings.push({
-              address: tokens[i],
-              amount: formatEther(amounts[i]),
-              symbol: symbols[i],
-            });
+          // Always show tokens, even with 0 balance for debugging
+          const tokenAmount = amounts[i];
+          let formattedAmount;
+
+          // Handle different token decimals
+          if (symbols[i] === "USDC") {
+            // USDC has 6 decimals
+            formattedAmount = (Number(tokenAmount) / 1e6).toString();
+          } else {
+            // Default to 18 decimals like ETH
+            formattedAmount = formatEther(tokenAmount);
           }
+
+          tokenEarnings.push({
+            address: tokens[i],
+            amount: formattedAmount,
+            symbol: symbols[i],
+          });
         }
 
         setAvailableBalance({
@@ -94,6 +109,34 @@ const Withdraw: NextPage = () => {
 
     fetchEarnings();
   }, [userAddress, contractInfo, ready]);
+
+  // Fetch supported tokens for debugging
+  useEffect(() => {
+    const fetchSupportedTokens = async () => {
+      if (!contractInfo) return;
+
+      try {
+        const publicClient = createPublicClient({
+          chain: baseSepolia,
+          transport: http(),
+        });
+
+        const [addresses, symbols] = (await publicClient.readContract({
+          address: contractInfo.address as `0x${string}`,
+          abi: contractInfo.abi,
+          functionName: "getSupportedTokens",
+          args: [],
+        })) as [string[], string[]];
+
+        setSupportedTokens({ addresses, symbols });
+        console.log("🪙 Supported tokens:", { addresses, symbols });
+      } catch (error) {
+        console.error("Error fetching supported tokens:", error);
+      }
+    };
+
+    fetchSupportedTokens();
+  }, [contractInfo]);
 
   // Show loading state while Privy is initializing
   if (isPrivyAvailable && !ready) {
@@ -123,9 +166,12 @@ const Withdraw: NextPage = () => {
       setError("Please enter a valid amount greater than 0");
       return false;
     }
-    const ethBalance = parseFloat(availableBalance.eth);
-    if (numAmount > ethBalance) {
-      setError(`Insufficient balance. Available: ${ethBalance.toFixed(6)} ETH`);
+
+    const usdcToken = availableBalance.tokens.find(token => token.symbol === "USDC");
+    const usdcBalance = usdcToken ? parseFloat(usdcToken.amount) : 0;
+
+    if (numAmount > usdcBalance) {
+      setError(`Insufficient balance. Available: ${usdcBalance.toFixed(2)} USDC`);
       return false;
     }
     setError("");
@@ -152,12 +198,18 @@ const Withdraw: NextPage = () => {
 
       notification.info("Initiating withdrawal transaction...");
 
-      // Call withdrawAllEarnings function
+      // Get USDC token address
+      const usdcToken = availableBalance.tokens.find(token => token.symbol === "USDC");
+      if (!usdcToken) {
+        throw new Error("USDC token not found");
+      }
+
+      // Call withdrawTokenEarnings function for USDC specifically
       const txHash = await walletClient.writeContract({
         address: contractInfo.address as `0x${string}`,
         abi: contractInfo.abi,
-        functionName: "withdrawAllEarnings",
-        args: [],
+        functionName: "withdrawTokenEarnings",
+        args: [usdcToken.address as `0x${string}`],
       });
 
       notification.success("Transaction submitted! Waiting for confirmation...");
@@ -188,13 +240,23 @@ const Withdraw: NextPage = () => {
         const ethAmount = amounts[0];
         const tokenEarnings = [];
         for (let i = 1; i < tokens.length; i++) {
-          if (amounts[i] > 0n) {
-            tokenEarnings.push({
-              address: tokens[i],
-              amount: formatEther(amounts[i]),
-              symbol: symbols[i],
-            });
+          const tokenAmount = amounts[i];
+          let formattedAmount;
+
+          // Handle different token decimals
+          if (symbols[i] === "USDC") {
+            // USDC has 6 decimals
+            formattedAmount = (Number(tokenAmount) / 1e6).toString();
+          } else {
+            // Default to 18 decimals like ETH
+            formattedAmount = formatEther(tokenAmount);
           }
+
+          tokenEarnings.push({
+            address: tokens[i],
+            amount: formattedAmount,
+            symbol: symbols[i],
+          });
         }
 
         setAvailableBalance({
@@ -234,7 +296,9 @@ const Withdraw: NextPage = () => {
 
   // Set max amount
   const setMaxAmount = () => {
-    setWithdrawAmount(availableBalance.eth);
+    const usdcToken = availableBalance.tokens.find(token => token.symbol === "USDC");
+    const usdcBalance = usdcToken ? usdcToken.amount : "0";
+    setWithdrawAmount(usdcBalance);
     setError("");
   };
 
@@ -263,20 +327,30 @@ const Withdraw: NextPage = () => {
                   <span className="loading loading-spinner loading-sm"></span>
                 ) : (
                   <div className="text-right">
-                    <div className="text-xl font-bold text-primary">
-                      {parseFloat(availableBalance.eth).toFixed(6)} ETH
-                    </div>
-                    {availableBalance.tokens.length > 0 && (
-                      <div className="text-sm text-base-content/70">
-                        {availableBalance.tokens.map((token, index) => (
-                          <div key={index}>
-                            {parseFloat(token.amount).toFixed(4)} {token.symbol}
+                    {availableBalance.tokens.filter(token => token.symbol === "USDC").length > 0 ? (
+                      availableBalance.tokens
+                        .filter(token => token.symbol === "USDC")
+                        .map((token, index) => (
+                          <div key={index} className="text-xl font-bold text-primary">
+                            {parseFloat(token.amount).toFixed(2)} {token.symbol}
                           </div>
-                        ))}
-                      </div>
+                        ))
+                    ) : (
+                      <div className="text-xl font-bold text-primary">0.00 USDC</div>
                     )}
                   </div>
                 )}
+              </div>
+              {/* Debug: Show supported tokens */}
+              <div className="flex justify-between items-center">
+                <span className="text-base-content/70">Supported Tokens:</span>
+                <div className="text-right text-sm">
+                  {supportedTokens.symbols.length > 0 ? (
+                    supportedTokens.symbols.map((symbol, index) => <div key={index}>{symbol}</div>)
+                  ) : (
+                    <span className="text-base-content/50">Loading...</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -289,13 +363,13 @@ const Withdraw: NextPage = () => {
               {/* Amount Input */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">Withdrawal Amount (ETH)</span>
+                  <span className="label-text font-medium">Withdrawal Amount (USDC)</span>
                 </label>
                 <div className="input-group">
-                  <span className="bg-base-200 px-4 flex items-center">Ξ</span>
+                  <span className="bg-base-200 px-4 flex items-center">$</span>
                   <input
                     type="text"
-                    placeholder="0.000000"
+                    placeholder="0.00"
                     className={`input input-bordered flex-1 text-right ${error ? "input-error" : ""}`}
                     value={withdrawAmount}
                     onChange={handleAmountChange}
@@ -305,7 +379,12 @@ const Withdraw: NextPage = () => {
                     type="button"
                     className="btn btn-outline btn-sm"
                     onClick={setMaxAmount}
-                    disabled={isWithdrawing || isLoadingBalance || parseFloat(availableBalance.eth) === 0}
+                    disabled={
+                      isWithdrawing ||
+                      isLoadingBalance ||
+                      !availableBalance.tokens.find(t => t.symbol === "USDC") ||
+                      parseFloat(availableBalance.tokens.find(t => t.symbol === "USDC")?.amount || "0") === 0
+                    }
                   >
                     MAX
                   </button>
@@ -324,27 +403,15 @@ const Withdraw: NextPage = () => {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>Withdrawal Method:</span>
-                      <span>All Available Earnings</span>
+                      <span>USDC Token Withdrawal</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>ETH Amount:</span>
-                      <span>{parseFloat(availableBalance.eth).toFixed(6)} ETH</span>
+                      <span>USDC Amount:</span>
+                      <span>${parseFloat(withdrawAmount || "0").toFixed(2)} USDC</span>
                     </div>
-                    {availableBalance.tokens.length > 0 && (
-                      <div className="flex justify-between">
-                        <span>Tokens:</span>
-                        <div className="text-right">
-                          {availableBalance.tokens.map((token, index) => (
-                            <div key={index}>
-                              {parseFloat(token.amount).toFixed(4)} {token.symbol}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <div className="flex justify-between">
                       <span>Network Fee:</span>
-                      <span>Estimated gas fee</span>
+                      <span>Estimated gas fee (paid in ETH)</span>
                     </div>
                   </div>
                 </div>
@@ -371,10 +438,14 @@ const Withdraw: NextPage = () => {
                 className={`btn btn-primary w-full ${isWithdrawing ? "loading" : ""}`}
                 onClick={handleWithdraw}
                 disabled={
-                  parseFloat(availableBalance.eth) === 0 || isWithdrawing || withdrawalSuccess || isLoadingBalance
+                  !availableBalance.tokens.find(t => t.symbol === "USDC") ||
+                  parseFloat(availableBalance.tokens.find(t => t.symbol === "USDC")?.amount || "0") === 0 ||
+                  isWithdrawing ||
+                  withdrawalSuccess ||
+                  isLoadingBalance
                 }
               >
-                {isWithdrawing ? "Processing Withdrawal..." : "Withdraw All Earnings"}
+                {isWithdrawing ? "Processing Withdrawal..." : "Withdraw USDC"}
               </button>
 
               {/* Info Note */}
@@ -390,11 +461,11 @@ const Withdraw: NextPage = () => {
                   <div className="text-sm">
                     <p className="font-medium text-info mb-1">Withdrawal Information</p>
                     <ul className="space-y-1 text-base-content/70">
-                      <li>• Withdrawals will transfer all your available earnings (ETH + tokens)</li>
+                      <li>• Withdrawals will transfer your available USDC earnings only</li>
                       <li>• Transactions are processed on Base Sepolia testnet</li>
-                      <li>• Network fees are paid from your wallet balance</li>
-                      <li>• Once confirmed, funds will appear in your connected wallet</li>
-                      <li>• You can only withdraw earnings from donations received</li>
+                      <li>• Network fees are paid in ETH from your wallet balance</li>
+                      <li>• Once confirmed, USDC will appear in your connected wallet</li>
+                      <li>• You can only withdraw USDC earnings from donations received</li>
                     </ul>
                   </div>
                 </div>
