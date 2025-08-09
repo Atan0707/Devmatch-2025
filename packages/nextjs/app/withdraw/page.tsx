@@ -1,26 +1,99 @@
 "use client";
 
-import { useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useEffect, useState } from "react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
+import { createPublicClient, createWalletClient, custom, formatEther, http } from "viem";
+import { baseSepolia } from "viem/chains";
 import { Navbar } from "~~/components";
 import { usePrivyAvailability } from "~~/components/PrivyClientProvider";
 import { Address } from "~~/components/scaffold-eth";
+import deployedContracts from "~~/contracts/deployedContracts";
+import { notification } from "~~/utils/scaffold-eth";
 
 const Withdraw: NextPage = () => {
-  const { address: connectedAddress, isConnected } = useAccount();
   const { isPrivyAvailable } = usePrivyAvailability();
-  const { ready, authenticated, user } = usePrivy();
+  const { ready, authenticated } = usePrivy();
+  const { wallets } = useWallets();
 
   // Form state
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawalSuccess, setWithdrawalSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [availableBalance, setAvailableBalance] = useState<{
+    eth: string;
+    tokens: Array<{ address: string; amount: string; symbol: string }>;
+  }>({
+    eth: "0",
+    tokens: [],
+  });
+  const [isLoadingBalance, setIsLoadingBalance] = useState(true);
 
-  // Mock available balance - replace with actual balance fetching
-  const availableBalance = 1250.75; // USDC
+  // Get user wallet info
+  const connectedWallet = wallets.find(wallet => wallet.walletClientType !== "privy");
+  const embeddedWallet = wallets.find(wallet => wallet.walletClientType === "privy");
+  const activeWallet = connectedWallet || embeddedWallet;
+  const isUserConnected = authenticated && activeWallet;
+  const userAddress = activeWallet?.address;
+
+  // Get contract info
+  const contractInfo = deployedContracts[baseSepolia.id]?.PisangContract;
+
+  // Fetch user earnings from contract
+  useEffect(() => {
+    const fetchEarnings = async () => {
+      if (!userAddress || !contractInfo || !ready) {
+        setIsLoadingBalance(false);
+        return;
+      }
+
+      try {
+        setIsLoadingBalance(true);
+
+        // Create public client for reading contract
+        const publicClient = createPublicClient({
+          chain: baseSepolia,
+          transport: http(),
+        });
+
+        // Get creator earnings for all tokens
+        const [tokens, amounts, symbols] = (await publicClient.readContract({
+          address: contractInfo.address as `0x${string}`,
+          abi: contractInfo.abi,
+          functionName: "getCreatorAllEarnings",
+          args: [userAddress as `0x${string}`],
+        })) as [string[], bigint[], string[]];
+
+        // Process the earnings data
+        const ethAmount = amounts[0]; // First is always ETH
+        const tokenEarnings = [];
+
+        // Process token earnings (skip first element which is ETH)
+        for (let i = 1; i < tokens.length; i++) {
+          if (amounts[i] > 0n) {
+            tokenEarnings.push({
+              address: tokens[i],
+              amount: formatEther(amounts[i]),
+              symbol: symbols[i],
+            });
+          }
+        }
+
+        setAvailableBalance({
+          eth: formatEther(ethAmount),
+          tokens: tokenEarnings,
+        });
+      } catch (error) {
+        console.error("Error fetching earnings:", error);
+        notification.error("Failed to fetch earnings");
+      } finally {
+        setIsLoadingBalance(false);
+      }
+    };
+
+    fetchEarnings();
+  }, [userAddress, contractInfo, ready]);
 
   // Show loading state while Privy is initializing
   if (isPrivyAvailable && !ready) {
@@ -30,10 +103,6 @@ const Withdraw: NextPage = () => {
       </div>
     );
   }
-
-  // Check if user is connected
-  const isUserConnected = (isPrivyAvailable && authenticated) || isConnected;
-  const userAddress = user?.wallet?.address || connectedAddress;
 
   if (!isUserConnected) {
     return (
@@ -54,8 +123,9 @@ const Withdraw: NextPage = () => {
       setError("Please enter a valid amount greater than 0");
       return false;
     }
-    if (numAmount > availableBalance) {
-      setError(`Insufficient balance. Available: $${availableBalance.toFixed(2)} USDC`);
+    const ethBalance = parseFloat(availableBalance.eth);
+    if (numAmount > ethBalance) {
+      setError(`Insufficient balance. Available: ${ethBalance.toFixed(6)} ETH`);
       return false;
     }
     setError("");
@@ -64,23 +134,89 @@ const Withdraw: NextPage = () => {
 
   // Handle withdrawal
   const handleWithdraw = async () => {
-    if (!validateAmount(withdrawAmount)) return;
+    if (!validateAmount(withdrawAmount) || !activeWallet || !contractInfo) return;
 
     setIsWithdrawing(true);
     setError("");
 
     try {
-      // Simulate withdrawal process - replace with actual withdrawal logic
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create wallet client for writing to contract
+      await activeWallet.switchChain(baseSepolia.id);
+      const provider = await activeWallet.getEthereumProvider();
 
-      // Mock success
-      setWithdrawalSuccess(true);
-      setWithdrawAmount("");
+      const walletClient = createWalletClient({
+        account: userAddress as `0x${string}`,
+        chain: baseSepolia,
+        transport: custom(provider),
+      });
 
-      // Reset success state after 5 seconds
-      setTimeout(() => setWithdrawalSuccess(false), 5000);
-    } catch {
-      setError("Withdrawal failed. Please try again.");
+      notification.info("Initiating withdrawal transaction...");
+
+      // Call withdrawAllEarnings function
+      const txHash = await walletClient.writeContract({
+        address: contractInfo.address as `0x${string}`,
+        abi: contractInfo.abi,
+        functionName: "withdrawAllEarnings",
+        args: [],
+      });
+
+      notification.success("Transaction submitted! Waiting for confirmation...");
+
+      // Wait for transaction confirmation
+      const publicClient = createPublicClient({
+        chain: baseSepolia,
+        transport: http(),
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      if (receipt.status === "success") {
+        setWithdrawalSuccess(true);
+        setWithdrawAmount("");
+        notification.success("Withdrawal successful! Funds have been transferred to your wallet.");
+
+        // Refresh balance
+        const [tokens, amounts, symbols] = (await publicClient.readContract({
+          address: contractInfo.address as `0x${string}`,
+          abi: contractInfo.abi,
+          functionName: "getCreatorAllEarnings",
+          args: [userAddress as `0x${string}`],
+        })) as [string[], bigint[], string[]];
+
+        const ethAmount = amounts[0];
+        const tokenEarnings = [];
+        for (let i = 1; i < tokens.length; i++) {
+          if (amounts[i] > 0n) {
+            tokenEarnings.push({
+              address: tokens[i],
+              amount: formatEther(amounts[i]),
+              symbol: symbols[i],
+            });
+          }
+        }
+
+        setAvailableBalance({
+          eth: formatEther(ethAmount),
+          tokens: tokenEarnings,
+        });
+
+        // Reset success state after 5 seconds
+        setTimeout(() => setWithdrawalSuccess(false), 5000);
+      } else {
+        throw new Error("Transaction failed");
+      }
+    } catch (error: any) {
+      console.error("Withdrawal error:", error);
+      if (error.message?.includes("No earnings to withdraw")) {
+        setError("No earnings available to withdraw");
+      } else if (error.message?.includes("User rejected")) {
+        setError("Transaction was rejected");
+      } else {
+        setError("Withdrawal failed. Please try again.");
+      }
+      notification.error("Withdrawal failed");
     } finally {
       setIsWithdrawing(false);
     }
@@ -98,7 +234,7 @@ const Withdraw: NextPage = () => {
 
   // Set max amount
   const setMaxAmount = () => {
-    setWithdrawAmount(availableBalance.toString());
+    setWithdrawAmount(availableBalance.eth);
     setError("");
   };
 
@@ -123,7 +259,24 @@ const Withdraw: NextPage = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-base-content/70">Available Balance:</span>
-                <span className="text-xl font-bold text-primary">${availableBalance.toFixed(2)} USDC</span>
+                {isLoadingBalance ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-primary">
+                      {parseFloat(availableBalance.eth).toFixed(6)} ETH
+                    </div>
+                    {availableBalance.tokens.length > 0 && (
+                      <div className="text-sm text-base-content/70">
+                        {availableBalance.tokens.map((token, index) => (
+                          <div key={index}>
+                            {parseFloat(token.amount).toFixed(4)} {token.symbol}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -136,23 +289,23 @@ const Withdraw: NextPage = () => {
               {/* Amount Input */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">Withdrawal Amount (USDC)</span>
+                  <span className="label-text font-medium">Withdrawal Amount (ETH)</span>
                 </label>
                 <div className="input-group">
-                  <span className="bg-base-200 px-4 flex items-center">$</span>
+                  <span className="bg-base-200 px-4 flex items-center">Ξ</span>
                   <input
                     type="text"
-                    placeholder="0.00"
+                    placeholder="0.000000"
                     className={`input input-bordered flex-1 text-right ${error ? "input-error" : ""}`}
                     value={withdrawAmount}
                     onChange={handleAmountChange}
-                    disabled={isWithdrawing}
+                    disabled={isWithdrawing || isLoadingBalance}
                   />
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
                     onClick={setMaxAmount}
-                    disabled={isWithdrawing}
+                    disabled={isWithdrawing || isLoadingBalance || parseFloat(availableBalance.eth) === 0}
                   >
                     MAX
                   </button>
@@ -170,18 +323,28 @@ const Withdraw: NextPage = () => {
                   <h4 className="font-medium mb-2">Withdrawal Summary</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span>Amount:</span>
-                      <span>${parseFloat(withdrawAmount || "0").toFixed(2)} USDC</span>
+                      <span>Withdrawal Method:</span>
+                      <span>All Available Earnings</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Network Fee:</span>
-                      <span>~$2.50 (estimated)</span>
+                      <span>ETH Amount:</span>
+                      <span>{parseFloat(availableBalance.eth).toFixed(6)} ETH</span>
                     </div>
-                    <div className="border-t border-base-300 pt-1 mt-2">
-                      <div className="flex justify-between font-medium">
-                        <span>You&apos;ll receive:</span>
-                        <span>${Math.max(0, parseFloat(withdrawAmount || "0") - 2.5).toFixed(2)} USDC</span>
+                    {availableBalance.tokens.length > 0 && (
+                      <div className="flex justify-between">
+                        <span>Tokens:</span>
+                        <div className="text-right">
+                          {availableBalance.tokens.map((token, index) => (
+                            <div key={index}>
+                              {parseFloat(token.amount).toFixed(4)} {token.symbol}
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Network Fee:</span>
+                      <span>Estimated gas fee</span>
                     </div>
                   </div>
                 </div>
@@ -207,9 +370,11 @@ const Withdraw: NextPage = () => {
                 type="button"
                 className={`btn btn-primary w-full ${isWithdrawing ? "loading" : ""}`}
                 onClick={handleWithdraw}
-                disabled={!withdrawAmount || !!error || isWithdrawing || withdrawalSuccess}
+                disabled={
+                  parseFloat(availableBalance.eth) === 0 || isWithdrawing || withdrawalSuccess || isLoadingBalance
+                }
               >
-                {isWithdrawing ? "Processing Withdrawal..." : "Withdraw Funds"}
+                {isWithdrawing ? "Processing Withdrawal..." : "Withdraw All Earnings"}
               </button>
 
               {/* Info Note */}
@@ -225,10 +390,11 @@ const Withdraw: NextPage = () => {
                   <div className="text-sm">
                     <p className="font-medium text-info mb-1">Withdrawal Information</p>
                     <ul className="space-y-1 text-base-content/70">
-                      <li>• Withdrawals are processed immediately to your connected wallet</li>
-                      <li>• Network fees are estimated and may vary based on current gas prices</li>
-                      <li>• Minimum withdrawal amount is $10.00 USDC</li>
-                      <li>• Maximum daily withdrawal limit is $10,000.00 USDC</li>
+                      <li>• Withdrawals will transfer all your available earnings (ETH + tokens)</li>
+                      <li>• Transactions are processed on Base Sepolia testnet</li>
+                      <li>• Network fees are paid from your wallet balance</li>
+                      <li>• Once confirmed, funds will appear in your connected wallet</li>
+                      <li>• You can only withdraw earnings from donations received</li>
                     </ul>
                   </div>
                 </div>
