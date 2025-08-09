@@ -23,8 +23,8 @@ export const Header = () => {
   return (
     <div className="navbar bg-base-100 min-h-0 shrink-0 justify-between z-20 px-4">
       <div className="navbar-start">
-        {/* Show dashboard link only when wallet is connected */}
-        {isUserConnected && (
+        {/* Show dashboard link only when wallet is connected and not on home page */}
+        {isUserConnected && pathname !== "/" && (
           <Link href="/dashboard" className={`btn btn-ghost ${pathname === "/dashboard" ? "btn-active" : ""}`}>
             Dashboard
           </Link>
