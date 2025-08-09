@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   84532: {
     PisangContract: {
-      address: "0x581cBC507994764bccB70f2e0e79Da24D8D8012B",
+      address: "0x39266942a0F29C6a3495e43fCaE510C0a454B1d9",
       abi: [
         {
           inputs: [
@@ -69,7 +69,13 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "string",
-              name: "url",
+              name: "username",
+              type: "string",
+            },
+            {
+              indexed: true,
+              internalType: "string",
+              name: "platform",
               type: "string",
             },
             {
@@ -88,7 +94,13 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "string",
-              name: "url",
+              name: "username",
+              type: "string",
+            },
+            {
+              indexed: true,
+              internalType: "string",
+              name: "platform",
               type: "string",
             },
             {
@@ -107,7 +119,13 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "string",
-              name: "url",
+              name: "username",
+              type: "string",
+            },
+            {
+              indexed: true,
+              internalType: "string",
+              name: "platform",
               type: "string",
             },
             {
@@ -144,7 +162,13 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "string",
-              name: "contentUrl",
+              name: "contentUsername",
+              type: "string",
+            },
+            {
+              indexed: false,
+              internalType: "string",
+              name: "contentPlatform",
               type: "string",
             },
             {
@@ -179,6 +203,19 @@ const deployedContracts = {
           anonymous: false,
           inputs: [
             {
+              indexed: true,
+              internalType: "string",
+              name: "platform",
+              type: "string",
+            },
+          ],
+          name: "PlatformAdded",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
               indexed: false,
               internalType: "uint256",
               name: "oldFee",
@@ -192,6 +229,19 @@ const deployedContracts = {
             },
           ],
           name: "PlatformFeeUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "string",
+              name: "platform",
+              type: "string",
+            },
+          ],
+          name: "PlatformRemoved",
           type: "event",
         },
         {
@@ -232,6 +282,37 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "address",
+              name: "owner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "string",
+              name: "oldUsername",
+              type: "string",
+            },
+            {
+              indexed: true,
+              internalType: "string",
+              name: "newUsername",
+              type: "string",
+            },
+            {
+              indexed: false,
+              internalType: "string",
+              name: "platform",
+              type: "string",
+            },
+          ],
+          name: "UsernameChanged",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
               name: "creator",
               type: "address",
             },
@@ -258,6 +339,19 @@ const deployedContracts = {
         {
           inputs: [
             {
+              internalType: "string",
+              name: "_platform",
+              type: "string",
+            },
+          ],
+          name: "addSupportedPlatform",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
               internalType: "address",
               name: "_token",
               type: "address",
@@ -269,6 +363,29 @@ const deployedContracts = {
             },
           ],
           name: "addSupportedToken",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "_oldUsername",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_newUsername",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
+              type: "string",
+            },
+          ],
+          name: "changeUsername",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -301,7 +418,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
@@ -328,7 +450,12 @@ const deployedContracts = {
           outputs: [
             {
               internalType: "string",
-              name: "url",
+              name: "username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "platform",
               type: "string",
             },
             {
@@ -425,7 +552,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
@@ -438,7 +570,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
@@ -451,7 +588,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
             {
@@ -502,7 +644,12 @@ const deployedContracts = {
             },
             {
               internalType: "string",
-              name: "contentUrl",
+              name: "contentUsername",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "contentPlatform",
               type: "string",
             },
             {
@@ -542,7 +689,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
@@ -550,7 +702,12 @@ const deployedContracts = {
           outputs: [
             {
               internalType: "string",
-              name: "url",
+              name: "username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "platform",
               type: "string",
             },
             {
@@ -586,7 +743,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
@@ -705,7 +867,12 @@ const deployedContracts = {
             },
             {
               internalType: "string",
-              name: "contentUrl",
+              name: "contentUsername",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "contentPlatform",
               type: "string",
             },
             {
@@ -797,7 +964,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
             {
@@ -812,6 +984,19 @@ const deployedContracts = {
               internalType: "uint256[]",
               name: "",
               type: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getSupportedPlatforms",
+          outputs: [
+            {
+              internalType: "string[]",
+              name: "",
+              type: "string[]",
             },
           ],
           stateMutability: "view",
@@ -852,7 +1037,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
@@ -865,11 +1055,29 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
           ],
           name: "registerContent",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "_platform",
+              type: "string",
+            },
+          ],
+          name: "removeSupportedPlatform",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -885,6 +1093,44 @@ const deployedContracts = {
           name: "removeSupportedToken",
           outputs: [],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "supportedPlatformList",
+          outputs: [
+            {
+              internalType: "string",
+              name: "",
+              type: "string",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "",
+              type: "string",
+            },
+          ],
+          name: "supportedPlatforms",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -974,7 +1220,12 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "_url",
+              name: "_username",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_platform",
               type: "string",
             },
             {
@@ -1061,7 +1312,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 29495390,
+      deployedOnBlock: 29499130,
     },
     YourContract: {
       address: "0x8A40E25CBF5EaCd049dFe051d4A2ab89Dc24D890",

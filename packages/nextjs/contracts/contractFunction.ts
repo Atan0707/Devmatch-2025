@@ -16,13 +16,14 @@ export class PisangContractFunctions {
   // ===================== CONTENT MANAGEMENT FUNCTIONS =====================
 
   /**
-   * Register a new streaming content URL
-   * @param url The streaming content URL
+   * Register a new streaming content with username and platform
+   * @param username The username on the platform
+   * @param platform The platform (twitch, youtube, facebook, tiktok, etc.)
    */
-  async registerContent(url: string) {
+  async registerContent(username: string, platform: string) {
     try {
-      console.log("Registering content:", url);
-      const tx = await this.contract.registerContent(url);
+      console.log("Registering content:", username, "on", platform);
+      const tx = await this.contract.registerContent(username, platform);
       const receipt = await tx.wait();
       console.log("✅ Content registered successfully, tx hash:", receipt.hash);
       return { success: true, txHash: receipt.hash, receipt };
@@ -34,12 +35,13 @@ export class PisangContractFunctions {
 
   /**
    * Deactivate content (only by content owner)
-   * @param url The content URL to deactivate
+   * @param username The username to deactivate
+   * @param platform The platform of the content
    */
-  async deactivateContent(url: string) {
+  async deactivateContent(username: string, platform: string) {
     try {
-      console.log("Deactivating content:", url);
-      const tx = await this.contract.deactivateContent(url);
+      console.log("Deactivating content:", username, "on", platform);
+      const tx = await this.contract.deactivateContent(username, platform);
       const receipt = await tx.wait();
       console.log("✅ Content deactivated successfully, tx hash:", receipt.hash);
       return { success: true, txHash: receipt.hash, receipt };
@@ -51,12 +53,13 @@ export class PisangContractFunctions {
 
   /**
    * Reactivate content (only by content owner)
-   * @param url The content URL to reactivate
+   * @param username The username to reactivate
+   * @param platform The platform of the content
    */
-  async reactivateContent(url: string) {
+  async reactivateContent(username: string, platform: string) {
     try {
-      console.log("Reactivating content:", url);
-      const tx = await this.contract.reactivateContent(url);
+      console.log("Reactivating content:", username, "on", platform);
+      const tx = await this.contract.reactivateContent(username, platform);
       const receipt = await tx.wait();
       console.log("✅ Content reactivated successfully, tx hash:", receipt.hash);
       return { success: true, txHash: receipt.hash, receipt };
@@ -68,13 +71,14 @@ export class PisangContractFunctions {
 
   /**
    * Transfer content ownership to a new owner
-   * @param url The content URL
+   * @param username The username
+   * @param platform The platform
    * @param newOwner The new owner address
    */
-  async transferContentOwnership(url: string, newOwner: string) {
+  async transferContentOwnership(username: string, platform: string, newOwner: string) {
     try {
-      console.log("Transferring content ownership:", url, "to:", newOwner);
-      const tx = await this.contract.transferContentOwnership(url, newOwner);
+      console.log("Transferring content ownership:", username, "on", platform, "to:", newOwner);
+      const tx = await this.contract.transferContentOwnership(username, platform, newOwner);
       const receipt = await tx.wait();
       console.log("✅ Content ownership transferred successfully, tx hash:", receipt.hash);
       return { success: true, txHash: receipt.hash, receipt };
@@ -84,19 +88,39 @@ export class PisangContractFunctions {
     }
   }
 
+  /**
+   * Change username for an existing content account
+   * @param oldUsername The current username
+   * @param newUsername The new username
+   * @param platform The platform of the content
+   */
+  async changeUsername(oldUsername: string, newUsername: string, platform: string) {
+    try {
+      console.log("Changing username from:", oldUsername, "to:", newUsername, "on", platform);
+      const tx = await this.contract.changeUsername(oldUsername, newUsername, platform);
+      const receipt = await tx.wait();
+      console.log("✅ Username changed successfully, tx hash:", receipt.hash);
+      return { success: true, txHash: receipt.hash, receipt };
+    } catch (error: any) {
+      console.error("Username change failed:", error);
+      throw this.handleError(error, "Username change failed");
+    }
+  }
+
   // ===================== DONATION FUNCTIONS =====================
 
   /**
    * Donate ETH to a specific content
-   * @param url The content URL to donate to
+   * @param username The username to donate to
+   * @param platform The platform of the content
    * @param amount The amount of ETH to donate (in ETH, not Wei)
    */
-  async donateEthToContent(url: string, amount: string) {
+  async donateEthToContent(username: string, platform: string, amount: string) {
     try {
-      console.log("Donating ETH to content:", url, "Amount:", amount);
+      console.log("Donating ETH to content:", username, "on", platform, "Amount:", amount);
       const amountInWei = ethers.parseEther(amount);
 
-      const tx = await this.contract.donateToContent(url, {
+      const tx = await this.contract.donateToContent(username, platform, {
         value: amountInWei,
       });
       const receipt = await tx.wait();
@@ -110,14 +134,21 @@ export class PisangContractFunctions {
 
   /**
    * Donate ERC20 tokens to a specific content
-   * @param url The content URL to donate to
+   * @param username The username to donate to
+   * @param platform The platform of the content
    * @param tokenAddress The token contract address
    * @param amount The amount of tokens to donate (in token units, not wei)
    * @param decimals The token decimals (default: 18)
    */
-  async donateTokenToContent(url: string, tokenAddress: string, amount: string, decimals: number = 18) {
+  async donateTokenToContent(
+    username: string,
+    platform: string,
+    tokenAddress: string,
+    amount: string,
+    decimals: number = 18,
+  ) {
     try {
-      console.log("Donating tokens to content:", url, "Token:", tokenAddress, "Amount:", amount);
+      console.log("Donating tokens to content:", username, "on", platform, "Token:", tokenAddress, "Amount:", amount);
 
       const amountInWei = ethers.parseUnits(amount, decimals);
       const userAddress = await this.signer.getAddress();
@@ -178,7 +209,7 @@ export class PisangContractFunctions {
 
       // Make the donation
       console.log("Making token donation...");
-      const donateTx = await this.contract.donateTokenToContent(url, tokenAddress, amountInWei);
+      const donateTx = await this.contract.donateTokenToContent(username, platform, tokenAddress, amountInWei);
       const donateReceipt = await donateTx.wait();
       console.log("✅ Token donation successful, tx hash:", donateReceipt.hash);
       return { success: true, txHash: donateReceipt.hash, receipt: donateReceipt };
@@ -243,18 +274,20 @@ export class PisangContractFunctions {
 
   /**
    * Get content information
-   * @param url The content URL
+   * @param username The username
+   * @param platform The platform
    */
-  async getContent(url: string) {
+  async getContent(username: string, platform: string) {
     try {
-      const content = await this.contract.getContent(url);
+      const content = await this.contract.getContent(username, platform);
       return {
-        url: content[0],
-        owner: content[1],
-        totalDonationsReceived: content[2],
-        donationCount: content[3],
-        isActive: content[4],
-        createdAt: content[5],
+        username: content[0],
+        platform: content[1],
+        owner: content[2],
+        totalDonationsReceived: content[3],
+        donationCount: content[4],
+        isActive: content[5],
+        createdAt: content[6],
       };
     } catch (error: any) {
       console.error("Failed to get content:", error);
@@ -264,11 +297,12 @@ export class PisangContractFunctions {
 
   /**
    * Check if content exists
-   * @param url The content URL to check
+   * @param username The username to check
+   * @param platform The platform to check
    */
-  async contentExists(url: string): Promise<boolean> {
+  async contentExists(username: string, platform: string): Promise<boolean> {
     try {
-      return await this.contract.contentExistsCheck(url);
+      return await this.contract.contentExistsCheck(username, platform);
     } catch (error: any) {
       console.error("Failed to check content existence:", error);
       return false;
@@ -276,7 +310,7 @@ export class PisangContractFunctions {
   }
 
   /**
-   * Get all content URLs by a creator
+   * Get all content keys (username@platform) by a creator
    * @param creatorAddress The creator's address
    */
   async getCreatorContents(creatorAddress: string): Promise<string[]> {
@@ -290,11 +324,12 @@ export class PisangContractFunctions {
 
   /**
    * Get donation IDs for a specific content
-   * @param url The content URL
+   * @param username The username
+   * @param platform The platform
    */
-  async getContentDonations(url: string): Promise<number[]> {
+  async getContentDonations(username: string, platform: string): Promise<number[]> {
     try {
-      const donations = await this.contract.getContentDonations(url);
+      const donations = await this.contract.getContentDonations(username, platform);
       return donations.map((id: any) => Number(id));
     } catch (error: any) {
       console.error("Failed to get content donations:", error);
@@ -304,12 +339,13 @@ export class PisangContractFunctions {
 
   /**
    * Get recent donations for a content
-   * @param url The content URL
+   * @param username The username
+   * @param platform The platform
    * @param limit Number of recent donations to fetch
    */
-  async getRecentDonations(url: string, limit: number = 10): Promise<number[]> {
+  async getRecentDonations(username: string, platform: string, limit: number = 10): Promise<number[]> {
     try {
-      const donations = await this.contract.getRecentDonations(url, limit);
+      const donations = await this.contract.getRecentDonations(username, platform, limit);
       return donations.map((id: any) => Number(id));
     } catch (error: any) {
       console.error("Failed to get recent donations:", error);
@@ -329,8 +365,9 @@ export class PisangContractFunctions {
         contentOwner: donation[1],
         amount: donation[2],
         timestamp: donation[3],
-        contentUrl: donation[4],
-        token: donation[5],
+        contentUsername: donation[4],
+        contentPlatform: donation[5],
+        token: donation[6],
       };
     } catch (error: any) {
       console.error("Failed to get donation:", error);
@@ -419,6 +456,18 @@ export class PisangContractFunctions {
   }
 
   /**
+   * Get supported platforms
+   */
+  async getSupportedPlatforms(): Promise<string[]> {
+    try {
+      return await this.contract.getSupportedPlatforms();
+    } catch (error: any) {
+      console.error("Failed to get supported platforms:", error);
+      throw this.handleError(error, "Failed to get supported platforms");
+    }
+  }
+
+  /**
    * Get platform statistics
    */
   async getPlatformStats() {
@@ -469,6 +518,40 @@ export class PisangContractFunctions {
     } catch (error: any) {
       console.error("Remove token failed:", error);
       throw this.handleError(error, "Remove token failed");
+    }
+  }
+
+  /**
+   * Add a supported platform (only contract owner)
+   * @param platform The platform name to add
+   */
+  async addSupportedPlatform(platform: string) {
+    try {
+      console.log("Adding supported platform:", platform);
+      const tx = await this.contract.addSupportedPlatform(platform);
+      const receipt = await tx.wait();
+      console.log("✅ Platform added successfully, tx hash:", receipt.hash);
+      return { success: true, txHash: receipt.hash, receipt };
+    } catch (error: any) {
+      console.error("Add platform failed:", error);
+      throw this.handleError(error, "Add platform failed");
+    }
+  }
+
+  /**
+   * Remove a supported platform (only contract owner)
+   * @param platform The platform name to remove
+   */
+  async removeSupportedPlatform(platform: string) {
+    try {
+      console.log("Removing supported platform:", platform);
+      const tx = await this.contract.removeSupportedPlatform(platform);
+      const receipt = await tx.wait();
+      console.log("✅ Platform removed successfully, tx hash:", receipt.hash);
+      return { success: true, txHash: receipt.hash, receipt };
+    } catch (error: any) {
+      console.error("Remove platform failed:", error);
+      throw this.handleError(error, "Remove platform failed");
     }
   }
 
@@ -555,6 +638,30 @@ export class PisangContractFunctions {
   }
 
   /**
+   * Parse username@platform key into components
+   * @param key The username@platform key
+   */
+  parseContentKey(key: string): { username: string; platform: string } {
+    const parts = key.split("@");
+    if (parts.length !== 2) {
+      throw new Error("Invalid content key format. Expected username@platform");
+    }
+    return {
+      username: parts[0],
+      platform: parts[1],
+    };
+  }
+
+  /**
+   * Create username@platform key from components
+   * @param username The username
+   * @param platform The platform
+   */
+  createContentKey(username: string, platform: string): string {
+    return `${username}@${platform}`;
+  }
+
+  /**
    * Check token balance and allowance
    * @param tokenAddress The token address
    * @param decimals Token decimals (default: 18)
@@ -607,12 +714,30 @@ export class PisangContractFunctions {
       return new Error("You are not the owner of this content");
     } else if (error.message.includes("Content does not exist")) {
       return new Error("Content does not exist");
+    } else if (error.message.includes("Old content does not exist")) {
+      return new Error("Original content does not exist");
     } else if (error.message.includes("Content is not active")) {
       return new Error("Content is not active");
     } else if (error.message.includes("Not the contract owner")) {
       return new Error("You are not the contract owner");
     } else if (error.message.includes("Token not supported")) {
       return new Error("Token is not supported by the platform");
+    } else if (error.message.includes("Platform not supported")) {
+      return new Error("Platform is not supported");
+    } else if (error.message.includes("Username cannot be empty")) {
+      return new Error("Username cannot be empty");
+    } else if (error.message.includes("Platform cannot be empty")) {
+      return new Error("Platform cannot be empty");
+    } else if (error.message.includes("Content already registered")) {
+      return new Error("Content with this username and platform already exists");
+    } else if (error.message.includes("New username already exists")) {
+      return new Error("New username already exists on this platform");
+    } else if (error.message.includes("New username cannot be empty")) {
+      return new Error("New username cannot be empty");
+    } else if (error.message.includes("Platform already supported")) {
+      return new Error("Platform is already supported");
+    } else if (error.message.includes("Same owner")) {
+      return new Error("Cannot transfer to the same owner");
     } else {
       return new Error(`${defaultMessage}: ${error.message}`);
     }
@@ -673,9 +798,57 @@ export async function connectWalletAndInitializeContract() {
   }
 }
 
+// ===================== TYPES =====================
+
+export interface ContentInfo {
+  username: string;
+  platform: string;
+  owner: string;
+  totalDonationsReceived: bigint;
+  donationCount: bigint;
+  isActive: boolean;
+  createdAt: bigint;
+}
+
+export interface DonationInfo {
+  donor: string;
+  contentOwner: string;
+  amount: bigint;
+  timestamp: bigint;
+  contentUsername: string;
+  contentPlatform: string;
+  token: string;
+}
+
+export interface EarningsInfo {
+  tokens: string[];
+  amounts: bigint[];
+  symbols: string[];
+}
+
+export interface PlatformStats {
+  totalContents: bigint;
+  totalDonations: bigint;
+  platformFee: bigint;
+}
+
+export interface TokenStatus {
+  balance: string;
+  allowance: string;
+  balanceRaw: bigint;
+  allowanceRaw: bigint;
+  symbol: string;
+  name: string;
+}
+
 // ===================== CONSTANTS =====================
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+// Supported platforms
+export const SUPPORTED_PLATFORMS = ["twitch", "youtube", "facebook", "tiktok", "instagram", "twitter"] as const;
+
+export type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];
 
 // Common token addresses (you can expand this based on your needs)
 export const COMMON_TOKENS = {
@@ -691,3 +864,49 @@ export const TOKEN_DECIMALS = {
   WETH: 18,
   // Add more token decimals as needed
 };
+
+// ===================== HELPER UTILITIES =====================
+
+/**
+ * Validate platform name
+ * @param platform The platform to validate
+ */
+export function validatePlatform(platform: string): boolean {
+  return SUPPORTED_PLATFORMS.includes(platform as SupportedPlatform);
+}
+
+/**
+ * Validate username format
+ * @param username The username to validate
+ */
+export function validateUsername(username: string): boolean {
+  if (!username || username.trim().length === 0) {
+    return false;
+  }
+  // Add more validation rules as needed
+  return true;
+}
+
+/**
+ * Parse content key into username and platform
+ * @param key The username@platform key
+ */
+export function parseContentKey(key: string): { username: string; platform: string } {
+  const parts = key.split("@");
+  if (parts.length !== 2) {
+    throw new Error("Invalid content key format. Expected username@platform");
+  }
+  return {
+    username: parts[0],
+    platform: parts[1],
+  };
+}
+
+/**
+ * Create content key from username and platform
+ * @param username The username
+ * @param platform The platform
+ */
+export function createContentKey(username: string, platform: string): string {
+  return `${username}@${platform}`;
+}
