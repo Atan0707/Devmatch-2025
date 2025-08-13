@@ -335,6 +335,7 @@ This project is licensed under the MIT License - see the [LICENCE](LICENCE) file
 
 - **Live Demo**: [DevMatch Platform](https://your-deployment-url.com)
 - **Smart Contract**: [View on Explorer](https://base-sepolia.blockscout.com/address/0x39266942a0F29C6a3495e43fCaE510C0a454B1d9)
+- **Chrome Extension Repo**: [Github Link](https://github.com/tgxzd/extension-devmatch2025)
 - **Documentation**: Comprehensive inline documentation
 
 ---
